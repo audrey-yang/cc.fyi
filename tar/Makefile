@@ -7,3 +7,7 @@ OBJS=$(SRCS:.c=.o)
 
 $(PROG) : $(OBJS)
 	$(CC) -o $@ $^ 
+
+clean :
+	rm $(PROG) *.o
+	
