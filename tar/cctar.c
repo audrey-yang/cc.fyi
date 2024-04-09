@@ -7,6 +7,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 
+int create_tarball(char* tarball, char** files);
 int extract_files(int fileno);
 int list_tar(int fileno);
 
@@ -20,6 +21,25 @@ int main(int argc, char** argv) {
 	} else if (strcmp(argv[1], "-xf") == 0) {
 		int fileno = open(argv[2], 0);
 		extract_files(fileno);
+	} else if (strcmp(argv[1], "-cf") == 0) {
+		create_tarball(argv[2], argv[3]);
+	}
+	return 0;
+}
+
+int create_tarball(char* tarball, char** files) {
+	int tar_fd = open(tarball, O_WRONLY | O_CREAT);
+	int i = 0;
+	char header[512];
+	char buf[512];
+	while (files[i]) {
+		strncpy(header, tarball, strlen(tarball));
+		strncpy(header, "00000020", 8);
+		write(tar_fd, header, 512);
+		int file_fd = open(files[i], 0);
+		while (read(file_fd, buf, 512)) {
+			write(tar_fd, buf, 512);
+		}
 	}
 	return 0;
 }
