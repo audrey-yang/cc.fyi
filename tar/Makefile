@@ -9,5 +9,5 @@ $(PROG) : $(OBJS)
 	$(CC) -o $@ $^ 
 
 clean :
-	rm $(PROG) *.o
+	rm $(PROG) *.o *.txt
 	

@@ -7,7 +7,8 @@
 #include <fcntl.h>
 #include <unistd.h>
 
-int list_tar();
+int extract_files(int fileno);
+int list_tar(int fileno);
 
 int main(int argc, char** argv) {
 	printf("CC TAR\n");
@@ -16,6 +17,35 @@ int main(int argc, char** argv) {
 	} else if (strcmp(argv[1], "-tf") == 0) {
 		int fileno = open(argv[2], 0);
 		list_tar(fileno);
+	} else if (strcmp(argv[1], "-xf") == 0) {
+		int fileno = open(argv[2], 0);
+		extract_files(fileno);
+	}
+	return 0;
+}
+
+int extract_files(int fileno) {
+	char buf[512];
+	int amount_to_read = -1, already_read = 0;
+	int new_fd;
+	while (read(fileno, buf, 512)) {
+		if (buf[0] == 0) continue;
+		if (amount_to_read < 0) {
+			char name[100];
+			char size[12]; 
+			strncpy(name, buf, 100);
+			strncpy(size, buf + 124, 12);
+			amount_to_read = strtol(size, NULL, 8);
+			new_fd = open(name, O_WRONLY | O_CREAT);
+		} else {
+			int remaining = amount_to_read - already_read;
+			already_read += 512;
+			if (already_read >= amount_to_read) {
+				amount_to_read = -1;
+				already_read = 0;
+			}
+			write(new_fd, buf, remaining > 512 ? 512 : remaining);
+		}
 	}
 	return 0;
 }
@@ -31,7 +61,7 @@ int list_tar(int fileno) {
 			strncpy(name, buf, 100);
 			strncpy(size, buf + 124, 12);
 			printf("%s\n", name);
-			amount_to_read = atoi(size); // TODO convert to octal
+			amount_to_read = strtol(size, NULL, 8);
 		} else {
 			already_read += 512;
 			if (already_read >= amount_to_read) {
