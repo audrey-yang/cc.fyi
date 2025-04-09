@@ -1,43 +1,36 @@
 package main
-	
+
 import (
-    "fmt"
-	"flag"
-	"io"
-    "os"
 	"bufio"
+	"bytes"
+	"flag"
+	"fmt"
+	"io"
+	"os"
 )
 
-func count(r io.Reader, split bufio.SplitFunc) (int64) {
-	scanner := bufio.NewScanner(r)
-	scanner.Split(split)
+func countAndPrint(r io.Reader, splits []bufio.SplitFunc) {
+	for _, split := range splits {
+		w := new(bytes.Buffer)
+		tr := io.TeeReader(r, w)
+		scanner := bufio.NewScanner(tr)
 
-	count := int64(0)
-	for scanner.Scan() {
-        count++
-    }
+		scanner.Split(split)
 
-    if err := scanner.Err(); err != nil {
-        panic(err)
-    }
+		count := int64(0)
+		for scanner.Scan() {
+			count++
+		}
 
-	return count
-}
+		if err := scanner.Err(); err != nil {
+			panic(err)
+		}
 
-func countBytes(r io.Reader) (int64) {
-	return count(r, bufio.ScanBytes)
-}
+		fmt.Printf("%8d", count)
 
-func countLines(r io.Reader) (int64) {
-	return count(r, bufio.ScanLines)
-}
-
-func countWords(r io.Reader) (int64) {
-	return count(r, bufio.ScanWords)
-}
-
-func countChars(r io.Reader) (int64) {
-	return count(r, bufio.ScanRunes)
+		r = w
+		w = new(bytes.Buffer)
+	}
 }
 
 func main() {
@@ -65,29 +58,32 @@ func main() {
 	}
 
 	// handle no flags case (equivalent to -c -l -w)
-	if !*cPtr && !*lPtr && !*wPtr && !*mPtr { 
+	if !*cPtr && !*lPtr && !*wPtr && !*mPtr {
 		*cPtr = true
 		*lPtr = true
 		*wPtr = true
 	}
 
-	if (*lPtr) {
-		fmt.Printf("%6d", countLines(r))
+	splits := []bufio.SplitFunc{}
+
+	if *lPtr {
+		splits = append(splits, bufio.ScanLines)
 	}
 
-	if (*wPtr) {
-		fmt.Printf("%6d", countWords(r))
+	if *wPtr {
+		splits = append(splits, bufio.ScanWords)
 	}
 
-	if (*cPtr) {
-		fmt.Printf("%6d", countBytes(r))
+	if *cPtr {
+		splits = append(splits, bufio.ScanBytes)
 	}
 
-	if (*mPtr) {
-		fmt.Printf("%6d", countChars(r))
+	if *mPtr {
+		splits = append(splits, bufio.ScanRunes)
 	}
 
+	countAndPrint(r, splits)
 	if flag.NArg() == 1 {
-		fmt.Printf("\t%s\n", flag.Arg(0))
+		fmt.Printf(" %s\n", flag.Arg(0))
 	}
 }
