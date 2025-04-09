@@ -27,7 +27,7 @@ func main() {
 	}
 	
 	if *cPtr {
-		fmt.Println(countBytes(f), fileName)
+		fmt.Println("  ", countBytes(f), fileName)
 	}
 	
 	defer f.Close()
