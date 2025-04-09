@@ -8,59 +8,36 @@ import (
 	"bufio"
 )
 
-func countBytes(f *os.File) (int64) {
-	offset, err := f.Seek(0, io.SeekEnd)
-	if err != nil {
-		panic(err)
-	}
-	return offset
-}
+func count(r io.Reader, split bufio.SplitFunc) (int64) {
+	scanner := bufio.NewScanner(r)
+	scanner.Split(split)
 
-func countLines(f *os.File) (int64) {
-	scanner := bufio.NewScanner(f)
-
-	numLines := int64(0)
+	count := int64(0)
 	for scanner.Scan() {
-        numLines++
+        count++
     }
 
     if err := scanner.Err(); err != nil {
         panic(err)
     }
 
-	return numLines
+	return count
 }
 
-func countWords(f *os.File) (int64) {
-	scanner := bufio.NewScanner(f)
-	scanner.Split(bufio.ScanWords)
-
-	numWords := int64(0)
-	for scanner.Scan() {
-        numWords++
-    }
-
-    if err := scanner.Err(); err != nil {
-        panic(err)
-    }
-
-	return numWords
+func countBytes(r io.Reader) (int64) {
+	return count(r, bufio.ScanBytes)
 }
 
-func countChars(f *os.File) (int64) {
-	scanner := bufio.NewScanner(f)
-	scanner.Split(bufio.ScanRunes)
+func countLines(r io.Reader) (int64) {
+	return count(r, bufio.ScanLines)
+}
 
-	numChars := int64(0)
-	for scanner.Scan() {
-        numChars++
-    }
+func countWords(r io.Reader) (int64) {
+	return count(r, bufio.ScanWords)
+}
 
-    if err := scanner.Err(); err != nil {
-        panic(err)
-    }
-
-	return numChars
+func countChars(r io.Reader) (int64) {
+	return count(r, bufio.ScanRunes)
 }
 
 func main() {
@@ -70,22 +47,47 @@ func main() {
 	mPtr := flag.Bool("m", false, "count number of characters")
 	flag.Parse()
 
-	fileName := flag.Arg(0)
+	var r io.ReadCloser
+	var err error
+	if flag.NArg() == 0 {
+		r = os.Stdin
+	} else if flag.NArg() == 1 {
+		fileName := flag.Arg(0)
+		r, err = os.Open(fileName)
+		if err != nil {
+			panic(err)
+		}
+		defer r.Close()
+	} else {
+		fmt.Println("Usage: ccwc [options] [file]")
+		flag.PrintDefaults()
+		os.Exit(1)
+	}
 
-	f, err := os.Open(fileName)
-	if err != nil {
-		panic(err)
+	// handle no flags case (equivalent to -c -l -w)
+	if !*cPtr && !*lPtr && !*wPtr && !*mPtr { 
+		*cPtr = true
+		*lPtr = true
+		*wPtr = true
 	}
-	
-	if *cPtr {
-		fmt.Println("  ", countBytes(f), fileName)
-	} else if *lPtr {
-		fmt.Println("  ", countLines(f), fileName)
-	} else if *wPtr {
-		fmt.Println("  ", countWords(f), fileName)
-	} else if *mPtr {
-		fmt.Println("  ", countChars(f), fileName)
+
+	if (*lPtr) {
+		fmt.Printf("%6d", countLines(r))
 	}
-	
-	defer f.Close()
+
+	if (*wPtr) {
+		fmt.Printf("%6d", countWords(r))
+	}
+
+	if (*cPtr) {
+		fmt.Printf("%6d", countBytes(r))
+	}
+
+	if (*mPtr) {
+		fmt.Printf("%6d", countChars(r))
+	}
+
+	if flag.NArg() == 1 {
+		fmt.Printf("\t%s\n", flag.Arg(0))
+	}
 }
