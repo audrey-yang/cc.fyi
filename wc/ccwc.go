@@ -47,10 +47,27 @@ func countWords(f *os.File) (int64) {
 	return numWords
 }
 
+func countChars(f *os.File) (int64) {
+	scanner := bufio.NewScanner(f)
+	scanner.Split(bufio.ScanRunes)
+
+	numChars := int64(0)
+	for scanner.Scan() {
+        numChars++
+    }
+
+    if err := scanner.Err(); err != nil {
+        panic(err)
+    }
+
+	return numChars
+}
+
 func main() {
 	cPtr := flag.Bool("c", false, "count number of bytes")
 	lPtr := flag.Bool("l", false, "count number of lines")
 	wPtr := flag.Bool("w", false, "count number of words")
+	mPtr := flag.Bool("m", false, "count number of characters")
 	flag.Parse()
 
 	fileName := flag.Arg(0)
@@ -66,6 +83,8 @@ func main() {
 		fmt.Println("  ", countLines(f), fileName)
 	} else if *wPtr {
 		fmt.Println("  ", countWords(f), fileName)
+	} else if *mPtr {
+		fmt.Println("  ", countChars(f), fileName)
 	}
 	
 	defer f.Close()
