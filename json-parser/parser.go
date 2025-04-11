@@ -24,7 +24,6 @@ func main() {
 	keepScanning := false
 	for scanner.Scan() {
 		t := scanner.Text()
-		fmt.Println("/", t, "/")
 
 		if t == "{}" {
 			valid = true
@@ -68,13 +67,36 @@ func main() {
 			} else {
 				keepScanning = false
 			}
-			val, err := strconv.Unquote(t)
-			if err != nil {
-				valid = false
-				break
+
+			intVal, err := strconv.Atoi(t)
+			if err == nil {
+				data[key] = intVal
+				continue
 			}
-			data[key] = val
-			fmt.Println(key, val, ".....")
+
+			if t == "true" {
+				data[key] = true
+				continue
+			}
+
+			if t == "false" {
+				data[key] = false
+				continue
+			}
+
+			if t == "null" {
+				data[key] = nil
+				continue
+			}
+
+			strVal, err := strconv.Unquote(t)
+			if err == nil {
+				data[key] = strVal
+				continue
+			}
+
+			valid = false
+			break
 		}
 	}
 
