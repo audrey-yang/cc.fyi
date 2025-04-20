@@ -1,1 +1,8 @@
-ccrun
+*ccrun
+Vagrantfile
+.vagrant
+.cache
+.config
+*.iso
+.lesshst
+.bash_history
