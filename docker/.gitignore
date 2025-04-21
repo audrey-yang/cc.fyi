@@ -3,6 +3,6 @@ Vagrantfile
 .vagrant
 .cache
 .config
-*.iso
+*alpine*
 .lesshst
 .bash_history

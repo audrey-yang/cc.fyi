@@ -9,3 +9,5 @@ echo $?
 hostname
 ./ccrun run hostname
 echo $?
+
+./ccrun run /bin/busybox sh
