@@ -6,3 +6,4 @@ Vagrantfile
 *alpine*
 .lesshst
 .bash_history
+.vscode
