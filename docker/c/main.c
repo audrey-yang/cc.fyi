@@ -1,10 +1,14 @@
 #define _GNU_SOURCE
+#define pivot_root(new, old) syscall(SYS_pivot_root, new, old)
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <unistd.h>
 #include <sched.h>
 #include <sys/wait.h>
 #include <sys/mount.h>
+#include <sys/stat.h>
+#include <sys/syscall.h>
 
 typedef struct clone_args_def
 {
@@ -12,7 +16,7 @@ typedef struct clone_args_def
     char **argv;
 } clone_args;
 
-void setup_uid_gid_map(int pid)
+int setup_uid_gid_map(int pid)
 {
     char uid_map_path[32];
     char gid_map_path[32];
@@ -24,13 +28,13 @@ void setup_uid_gid_map(int pid)
     if (!uid_map_file)
     {
         perror("fopen uid_map");
-        exit(1);
+        return -1;
     }
     if (fprintf(uid_map_file, "0 %d 1\n", getuid()) < 0)
     {
         perror("fprintf uid_map");
         fclose(uid_map_file);
-        exit(1);
+        return -1;
     }
     fclose(uid_map_file);
 
@@ -45,15 +49,16 @@ void setup_uid_gid_map(int pid)
     if (!gid_map_file)
     {
         perror("fopen gid_map");
-        exit(1);
+        return -1;
     }
     if (fprintf(gid_map_file, "0 %d 1\n", getgid()) < 0)
     {
         perror("fprintf gid_map");
         fclose(gid_map_file);
-        exit(1);
+        return -1;
     }
     fclose(gid_map_file);
+    return 0;
 }
 
 int parent_clone(clone_args *args)
@@ -68,21 +73,56 @@ int parent_clone(clone_args *args)
     }
     close(args->pipe_fd[0]);
 
-    printf("Inside the container: %d of group %d\n", getuid(), getgid());
-
-    sethostname("container", 9);
-
-    if (mount("/proc", "/home/vagrant/c/alpine-minirootfs-3.21.3-x86/proc", "proc", 0, NULL) == -1)
+    if (setresgid(0, 0, 0) | setresuid(0, 0, 0))
     {
-        perror("mount");
+        perror("setresuid/setresgid");
         return 1;
     }
 
-    chdir("/home/vagrant/c/alpine-minirootfs-3.21.3-x86");
-    if (chroot("/home/vagrant/c/alpine-minirootfs-3.21.3-x86") == -1)
+    // printf("Inside the container: %d of group %d\n", getuid(), getgid());
+
+    sethostname("container", 9);
+
+    if (mount(NULL, "/", NULL, MS_REC | MS_PRIVATE, NULL) < 0)
     {
-        perror("chroot");
-        umount("/proc");
+        perror("remount /");
+        return 1;
+    }
+
+    mkdir("/tmp/rootfs/", 0775);
+
+    if (mount("/home/vagrant/c/alpine-minirootfs", "/tmp/rootfs", NULL, MS_BIND | MS_REC, NULL) < 0)
+    {
+        perror("mount fs");
+        return 1;
+    }
+
+    if (pivot_root("/tmp/rootfs", "/tmp/rootfs/.og") == -1)
+    {
+        perror("pivot_root");
+        umount("/tmp/rootfs");
+        return 1;
+    }
+    // Assumes that .og already exists... Need to find another workaround
+    // Seems for security reasons, all newly created directories are owned by nobody
+
+    if (mount("proc", "/proc", "proc", 0, NULL) == -1)
+    {
+        perror("mount proc");
+        return 1;
+    }
+    // Cannot move this after umount of old root
+
+    if (chdir("/") < 0)
+    {
+        perror("chdir");
+        umount("/tmp/rootfs");
+        return 1;
+    }
+
+    if (umount2("/.og", MNT_DETACH) < 0)
+    {
+        perror("umount2");
         return 1;
     }
 
@@ -94,6 +134,7 @@ int parent_clone(clone_args *args)
         {
             perror("execvp");
             umount("/proc");
+            umount("/tmp/rootfs");
             return 1;
         }
     }
@@ -104,10 +145,12 @@ int parent_clone(clone_args *args)
         {
             perror("wait");
             umount("/proc");
+            umount("/tmp/rootfs");
             exit(1);
         }
     }
     umount("/proc");
+    umount("/tmp/rootfs");
     return 0;
 }
 
@@ -129,7 +172,7 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    unsigned long flags = CLONE_NEWUSER | CLONE_NEWUTS | CLONE_NEWPID | CLONE_NEWNS;
+    unsigned long flags = CLONE_NEWUSER | CLONE_NEWNS | CLONE_NEWUTS | CLONE_NEWPID | CLONE_NEWIPC;
 
     int pid;
     if ((pid = clone((void *)parent_clone, stack + STACK_SIZE, flags | SIGCHLD, &args)) == -1)
@@ -139,8 +182,21 @@ int main(int argc, char *argv[])
         exit(1);
     }
 
-    setup_uid_gid_map(pid);
-    dprintf(args.pipe_fd[1], "1");
+    if (setup_uid_gid_map(pid))
+    {
+        free(stack);
+        if (pid)
+            kill(pid, SIGKILL);
+        exit(1);
+    }
+    if (dprintf(args.pipe_fd[1], "1") < 0)
+    {
+        perror("dprintf");
+        free(stack);
+        if (pid)
+            kill(pid, SIGKILL);
+        exit(1);
+    }
 
     int status;
     if (wait(&status) == -1)
