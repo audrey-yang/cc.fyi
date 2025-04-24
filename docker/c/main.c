@@ -97,21 +97,11 @@ int parent_clone(clone_args *args)
         return 1;
     }
 
-    if (pivot_root("/tmp/rootfs", "/tmp/rootfs/.og") == -1)
+    if (chroot("/tmp/rootfs") < 0)
     {
-        perror("pivot_root");
-        umount("/tmp/rootfs");
+        perror("chroot");
         return 1;
     }
-    // Assumes that .og already exists... Need to find another workaround
-    // Seems for security reasons, all newly created directories are owned by nobody
-
-    if (mount("proc", "/proc", "proc", 0, NULL) == -1)
-    {
-        perror("mount proc");
-        return 1;
-    }
-    // Cannot move this after umount of old root
 
     if (chdir("/") < 0)
     {
@@ -120,9 +110,9 @@ int parent_clone(clone_args *args)
         return 1;
     }
 
-    if (umount2("/.og", MNT_DETACH) < 0)
+    if (mount("proc", "/proc", "proc", 0, NULL) == -1)
     {
-        perror("umount2");
+        perror("mount proc");
         return 1;
     }
 
