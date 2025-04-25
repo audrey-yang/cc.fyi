@@ -110,6 +110,47 @@ int parent_clone(clone_args *args)
         return 1;
     }
 
+    if (mount("tmpfs", "/sys/fs/cgroup", "tmpfs", 0, NULL) == -1)
+    {
+        perror("mount cgroup as tmpfs");
+        return 1;
+    }
+
+    if (mkdir("/sys/fs/cgroup/cpu", 0755) == -1 || mkdir("/sys/fs/cgroup/memory", 0755) == -1)
+    {
+        perror("mkdir cgroup cpu and memory");
+        return 1;
+    }
+
+    if (mkdir("/sys/fs/cgroup/cpu/container", 0755) == -1 || mkdir("/sys/fs/cgroup/memory/container", 0755) == -1)
+    {
+        perror("mkdir container");
+        return 1;
+    }
+
+    char cpu_lim_path[64];
+    sprintf(cpu_lim_path, "/sys/fs/cgroup/cpu/container/cpu.shares");
+    FILE *cpu_lim_file = fopen(cpu_lim_path, "w");
+    fprintf(cpu_lim_file, "8");
+    fclose(cpu_lim_file);
+
+    char mem_lim_path[64];
+    sprintf(mem_lim_path, "/sys/fs/cgroup/memory/container/memory.limit_in_bytes");
+    FILE *mem_lim_file = fopen(mem_lim_path, "w");
+    fprintf(mem_lim_file, "16000");
+    fclose(mem_lim_file);
+
+    char cgroup_procs_path[64];
+    sprintf(cgroup_procs_path, "/sys/fs/cgroup/memory/container/cgroup.procs");
+    FILE *cgroup_procs_file = fopen(cgroup_procs_path, "w");
+    fprintf(cgroup_procs_file, "1\n");
+    fclose(cgroup_procs_file);
+
+    sprintf(cgroup_procs_path, "/sys/fs/cgroup/memory/container/cgroup.procs");
+    cgroup_procs_file = fopen(cgroup_procs_path, "w");
+    fprintf(cgroup_procs_file, "1\n");
+    fclose(cgroup_procs_file);
+
     if (mount("proc", "/proc", "proc", 0, NULL) == -1)
     {
         perror("mount proc");
@@ -124,7 +165,8 @@ int parent_clone(clone_args *args)
         {
             perror("execvp");
             umount("/proc");
-            umount("/tmp/rootfs");
+            umount("/sys/fs/cgroup");
+            // umount("/");
             return 1;
         }
     }
@@ -135,12 +177,14 @@ int parent_clone(clone_args *args)
         {
             perror("wait");
             umount("/proc");
-            umount("/tmp/rootfs");
+            umount("/sys/fs/cgroup");
+            // umount("/");
             exit(1);
         }
     }
     umount("/proc");
-    umount("/tmp/rootfs");
+    umount("/sys/fs/cgroup");
+    // umount("/");
     return 0;
 }
 
