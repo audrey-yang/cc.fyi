@@ -24,9 +24,6 @@ void release_parent_resources(char *stack, clone_args *args, int pid)
     free(stack);
 }
 
-/**
- * Set up the container
- */
 int main(int argc, char *argv[])
 {
     // Set up arguments for container

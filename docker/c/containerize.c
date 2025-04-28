@@ -46,6 +46,18 @@ int setup_uid_gid_map(int pid)
     return 0;
 }
 
+int pull_docker_image(char *image_name)
+{
+    char token[5012];
+    if (get_token(token) < 0)
+    {
+        printf("Failed to get token\n");
+        return -1;
+    }
+    printf("Got Docker token: %s\n", token);
+    return 0;
+}
+
 int run_in_container(clone_args *args)
 {
     // Ensure uid_map and gid_map are written, signalled by the parent via the pipe
@@ -60,6 +72,13 @@ int run_in_container(clone_args *args)
 
     // Change host name
     sethostname("container", 9);
+
+    // Pull image
+    if (pull_docker_image("ubuntu") < 0)
+    {
+        printf("Failed to pull image\n");
+        return -1;
+    }
 
     // Remount the root filesystem as private
     if (mount(NULL, "/", NULL, MS_REC | MS_PRIVATE, NULL) < 0)

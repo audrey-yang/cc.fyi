@@ -7,6 +7,8 @@
 #include <sys/stat.h>
 #include <sys/syscall.h>
 
+#include "dockerhub.h"
+
 /**
  * @brief Structure to hold arguments for the container process.
  *
