@@ -49,12 +49,13 @@ int setup_uid_gid_map(int pid)
 int pull_docker_image(char *image_name)
 {
     char token[5012];
-    if (get_token(token) < 0)
+    if (get_token(token, image_name) < 0)
     {
-        printf("Failed to get token\n");
         return -1;
     }
-    printf("Got Docker token: %s\n", token);
+    // printf("Got Docker token: %s\n", token);
+
+    pull_manifests(image_name, token);
     return 0;
 }
 

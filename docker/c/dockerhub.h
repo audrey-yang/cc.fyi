@@ -3,6 +3,7 @@
 #include <curl/easy.h>
 #include <string.h>
 #include <stdlib.h>
+#include <jansson.h>
 
 typedef struct memory_struct
 {
@@ -10,4 +11,5 @@ typedef struct memory_struct
     size_t size;
 } memory;
 
-int get_token(char *token);
+int get_token(char *token, char *image_name);
+int pull_manifests(char *image_name, char *token);
