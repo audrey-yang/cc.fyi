@@ -55,7 +55,7 @@ int pull_docker_image(char *image_name)
     }
     // printf("Got Docker token: %s\n", token);
 
-    pull_manifests(image_name, token);
+    pull_layers(image_name, token);
     return 0;
 }
 

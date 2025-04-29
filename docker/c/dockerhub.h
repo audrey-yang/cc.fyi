@@ -12,4 +12,4 @@ typedef struct memory_struct
 } memory;
 
 int get_token(char *token, char *image_name);
-int pull_manifests(char *image_name, char *token);
+int pull_layers(char *image_name, char *token);
