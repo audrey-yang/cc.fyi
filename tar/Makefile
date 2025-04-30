@@ -1,4 +1,4 @@
-PROG=cctar
+PROG = cctar
 CC = clang
 CFLAGS = -Wall -Werror -g
 
