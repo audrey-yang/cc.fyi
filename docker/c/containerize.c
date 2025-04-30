@@ -70,6 +70,9 @@ int run_in_container(clone_args *args)
         return -1;
     }
     close(args->pipe_fd[0]);
+    char **argv = args->argv;
+    char image_name[32];
+    strcpy(image_name, argv[2]);
 
     // Change host name
     sethostname("container", 9);
@@ -86,7 +89,7 @@ int run_in_container(clone_args *args)
     mkdir("/tmp/rootfs/", 0775);
 
     // Pull image
-    if (pull_docker_image("alpine") < 0)
+    if (pull_docker_image(image_name) < 0)
     {
         printf("Failed to pull image\n");
         return -1;
@@ -174,11 +177,10 @@ int run_in_container(clone_args *args)
     }
 
     // Fork to run the specified command
-    char **argv = args->argv;
     int pid = fork();
     if (pid == 0)
     {
-        if (execvp(argv[2], argv + 2))
+        if (execvp(argv[3], argv + 3))
         {
             perror("execvp");
             umount("/proc");

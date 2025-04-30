@@ -14,5 +14,5 @@ make
 # hostname
 # ./ccrun run hostname
 # echo $?
-./ccrun run /bin/busybox sh
+./ccrun run alpine /bin/busybox sh
 # strace -f ./ccrun run /bin/busybox sh
