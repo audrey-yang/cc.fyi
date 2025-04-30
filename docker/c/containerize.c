@@ -74,13 +74,6 @@ int run_in_container(clone_args *args)
     // Change host name
     sethostname("container", 9);
 
-    // Pull image
-    if (pull_docker_image("ubuntu") < 0)
-    {
-        printf("Failed to pull image\n");
-        return -1;
-    }
-
     // Remount the root filesystem as private
     if (mount(NULL, "/", NULL, MS_REC | MS_PRIVATE, NULL) < 0)
     {
@@ -91,7 +84,21 @@ int run_in_container(clone_args *args)
     // Create a new directory to act as the root filesystem for the container,
     // then mount the container filesystem to it
     mkdir("/tmp/rootfs/", 0775);
-    if (mount("/home/vagrant/c/alpine-minirootfs", "/tmp/rootfs", NULL, MS_BIND | MS_REC, NULL) < 0)
+
+    // Pull image
+    if (pull_docker_image("alpine") < 0)
+    {
+        printf("Failed to pull image\n");
+        return -1;
+    }
+
+    // if (mount("/home/vagrant/c/alpine-minirootfs", "/tmp/rootfs", NULL, MS_BIND | MS_REC, NULL) < 0)
+    // {
+    //     perror("mount fs");
+    //     return -1;
+    // }
+
+    if (mount("/tmp/rootfs", "/tmp/rootfs", NULL, MS_BIND | MS_REC, NULL) < 0)
     {
         perror("mount fs");
         return -1;
@@ -113,47 +120,47 @@ int run_in_container(clone_args *args)
     }
 
     // Create a new tmpfs for cgroups and mount, along with controllers for cpu and memory
-    if (mount("tmpfs", "/sys/fs/cgroup", "tmpfs", 0, NULL) == -1)
-    {
-        perror("mount cgroup as tmpfs");
-        return -1;
-    }
-    if (mkdir("/sys/fs/cgroup/cpu", 0755) == -1 || mkdir("/sys/fs/cgroup/memory", 0755) == -1)
-    {
-        perror("mkdir cgroup cpu and memory");
-        return -1;
-    }
-    if (mkdir("/sys/fs/cgroup/cpu/container", 0755) == -1 || mkdir("/sys/fs/cgroup/memory/container", 0755) == -1)
-    {
-        perror("mkdir container");
-        return -1;
-    }
+    // if (mount("tmpfs", "/sys/fs/cgroup", "tmpfs", 0, NULL) == -1)
+    // {
+    //     perror("mount cgroup as tmpfs");
+    //     return -1;
+    // }
+    // if (mkdir("/sys/fs/cgroup/cpu", 0755) == -1 || mkdir("/sys/fs/cgroup/memory", 0755) == -1)
+    // {
+    //     perror("mkdir cgroup cpu and memory");
+    //     return -1;
+    // }
+    // if (mkdir("/sys/fs/cgroup/cpu/container", 0755) == -1 || mkdir("/sys/fs/cgroup/memory/container", 0755) == -1)
+    // {
+    //     perror("mkdir container");
+    //     return -1;
+    // }
 
     // Limit cpu shares to 8
-    char cpu_lim_path[64];
-    sprintf(cpu_lim_path, "/sys/fs/cgroup/cpu/container/cpu.shares");
-    FILE *cpu_lim_file = fopen(cpu_lim_path, "w");
-    fprintf(cpu_lim_file, "8");
-    fclose(cpu_lim_file);
+    // char cpu_lim_path[64];
+    // sprintf(cpu_lim_path, "/sys/fs/cgroup/cpu/container/cpu.shares");
+    // FILE *cpu_lim_file = fopen(cpu_lim_path, "w");
+    // fprintf(cpu_lim_file, "8");
+    // fclose(cpu_lim_file);
 
     // Limit memory to 16MB
-    char mem_lim_path[64];
-    sprintf(mem_lim_path, "/sys/fs/cgroup/memory/container/memory.limit_in_bytes");
-    FILE *mem_lim_file = fopen(mem_lim_path, "w");
-    fprintf(mem_lim_file, "16000");
-    fclose(mem_lim_file);
+    // char mem_lim_path[64];
+    // sprintf(mem_lim_path, "/sys/fs/cgroup/memory/container/memory.limit_in_bytes");
+    // FILE *mem_lim_file = fopen(mem_lim_path, "w");
+    // fprintf(mem_lim_file, "16000");
+    // fclose(mem_lim_file);
 
     // Add the current process to the controllers
-    char cgroup_procs_path[64];
-    sprintf(cgroup_procs_path, "/sys/fs/cgroup/memory/container/cgroup.procs");
-    FILE *cgroup_procs_file = fopen(cgroup_procs_path, "w");
-    fprintf(cgroup_procs_file, "1\n");
-    fclose(cgroup_procs_file);
+    // char cgroup_procs_path[64];
+    // sprintf(cgroup_procs_path, "/sys/fs/cgroup/memory/container/cgroup.procs");
+    // FILE *cgroup_procs_file = fopen(cgroup_procs_path, "w");
+    // fprintf(cgroup_procs_file, "1\n");
+    // fclose(cgroup_procs_file);
 
-    sprintf(cgroup_procs_path, "/sys/fs/cgroup/memory/container/cgroup.procs");
-    cgroup_procs_file = fopen(cgroup_procs_path, "w");
-    fprintf(cgroup_procs_file, "1\n");
-    fclose(cgroup_procs_file);
+    // sprintf(cgroup_procs_path, "/sys/fs/cgroup/memory/container/cgroup.procs");
+    // cgroup_procs_file = fopen(cgroup_procs_path, "w");
+    // fprintf(cgroup_procs_file, "1\n");
+    // fclose(cgroup_procs_file);
 
     // Mount proc filesystem to the container
     if (mount("proc", "/proc", "proc", 0, NULL) == -1)
