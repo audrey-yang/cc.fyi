@@ -6,13 +6,19 @@ make clean
 rm -rf /tmp/rootfs
 make
 
-# ./ccrun run echo Hello, world!
-# echo $?
-# ./ccrun run ls asdf
-# echo $?
+echo "TEST BASIC"
+./ccrun run alpine echo Hello, world!
+echo $?
 
-# hostname
-# ./ccrun run hostname
-# echo $?
+echo "\n\nTEST ERROR"
+./ccrun run alpine ls asdf
+echo $?
+
+echo "\n\nTEST HOSTNAME"
+hostname
+./ccrun run alpine hostname
+
+echo "\n\nTEST SHELL"
+echo $?
 ./ccrun run alpine /bin/busybox sh
 # strace -f ./ccrun run /bin/busybox sh
