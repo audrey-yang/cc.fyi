@@ -32,7 +32,7 @@ int main(int argc, char *argv[])
     if (!stack)
     {
         perror("malloc");
-        return 1;
+        exit(1);
     }
 
     clone_args args;
@@ -40,7 +40,7 @@ int main(int argc, char *argv[])
     if (pipe(args.pipe_fd) < 0)
     {
         perror("pipe");
-        return 1;
+        exit(1);
     }
 
     unsigned long flags = CLONE_NEWUSER | CLONE_NEWNS | CLONE_NEWUTS | CLONE_NEWPID | CLONE_NEWIPC;
@@ -51,14 +51,14 @@ int main(int argc, char *argv[])
     {
         perror("clone");
         release_parent_resources(stack, &args, -1);
-        return 1;
+        exit(1);
     }
 
     // After child is created, write to UID/GID maps so child runs as the current user
     if (setup_uid_gid_map(pid))
     {
         release_parent_resources(stack, &args, pid);
-        return 1;
+        exit(1);
     }
 
     // Signal child via pipe once mapping is finished
@@ -66,7 +66,7 @@ int main(int argc, char *argv[])
     {
         perror("dprintf");
         release_parent_resources(stack, &args, pid);
-        return 1;
+        exit(1);
     }
 
     // Wait for child to finish
@@ -75,10 +75,9 @@ int main(int argc, char *argv[])
     {
         perror("wait");
         release_parent_resources(stack, &args, pid);
-        return 1;
+        exit(1);
     }
 
     release_parent_resources(stack, &args, -1);
-
-    return 0;
+    exit(WEXITSTATUS(status));
 }

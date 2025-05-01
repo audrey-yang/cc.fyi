@@ -46,19 +46,6 @@ int setup_uid_gid_map(int pid)
     return 0;
 }
 
-int pull_docker_image(char *image_name)
-{
-    char token[5012];
-    if (get_token(token, image_name) < 0)
-    {
-        return -1;
-    }
-    // printf("Got Docker token: %s\n", token);
-
-    pull_layers(image_name, token);
-    return 0;
-}
-
 int run_in_container(clone_args *args)
 {
     // Ensure uid_map and gid_map are written, signalled by the parent via the pipe
@@ -67,7 +54,7 @@ int run_in_container(clone_args *args)
     if (read(args->pipe_fd[0], &ch, 1) < 0)
     {
         perror("read");
-        return -1;
+        exit(1);
     }
     close(args->pipe_fd[0]);
     char **argv = args->argv;
@@ -81,7 +68,7 @@ int run_in_container(clone_args *args)
     if (mount(NULL, "/", NULL, MS_REC | MS_PRIVATE, NULL) < 0)
     {
         perror("remount /");
-        return -1;
+        exit(1);
     }
 
     // Create a new directory to act as the root filesystem for the container,
@@ -89,23 +76,23 @@ int run_in_container(clone_args *args)
     mkdir("/tmp/rootfs/", 0775);
 
     // Pull image
-    if (pull_docker_image(image_name) < 0)
+    if (pull_image(image_name) < 0)
     {
         printf("Failed to pull image\n");
-        return -1;
+        exit(1);
     }
 
     if (mount("/tmp/rootfs", "/tmp/rootfs", NULL, MS_BIND | MS_REC, NULL) < 0)
     {
         perror("mount fs");
-        return -1;
+        exit(1);
     }
 
     // Change the root of the container filesystem to the new directory
     if (chroot("/tmp/rootfs") < 0)
     {
         perror("chroot");
-        return -1;
+        exit(1);
     }
 
     // Ensure we are in the new root
@@ -113,34 +100,26 @@ int run_in_container(clone_args *args)
     {
         perror("chdir");
         umount("/tmp/rootfs");
-        return -1;
+        exit(1);
     }
 
     // Create a new tmpfs for cgroups and mount, along with controllers for cpu and memory
-    if (mkdir("/sys/fs", 0755) < 0)
-    {
-        perror("mkdir fs");
-        return -1;
-    }
-    if (mkdir("/sys/fs/cgroup", 0755) < 0)
-    {
-        perror("mkdir fs");
-        return -1;
-    }
+    mkdir("/sys/fs", 0755);
+    mkdir("/sys/fs/cgroup", 0755);
     if (mount("tmpfs", "/sys/fs/cgroup", "tmpfs", 0, NULL) == -1)
     {
         perror("mount cgroup as tmpfs");
-        return -1;
+        exit(1);
     }
     if (mkdir("/sys/fs/cgroup/cpu", 0755) == -1 || mkdir("/sys/fs/cgroup/memory", 0755) == -1)
     {
         perror("mkdir cgroup cpu and memory");
-        return -1;
+        exit(1);
     }
     if (mkdir("/sys/fs/cgroup/cpu/container", 0755) == -1 || mkdir("/sys/fs/cgroup/memory/container", 0755) == -1)
     {
         perror("mkdir container");
-        return -1;
+        exit(1);
     }
 
     // Limit cpu shares to 8
@@ -173,7 +152,7 @@ int run_in_container(clone_args *args)
     if (mount("proc", "/proc", "proc", 0, NULL) == -1)
     {
         perror("mount proc");
-        return -1;
+        exit(1);
     }
 
     // Fork to run the specified command
@@ -185,7 +164,7 @@ int run_in_container(clone_args *args)
             perror("execvp");
             umount("/proc");
             umount("/sys/fs/cgroup");
-            return -1;
+            exit(1);
         }
     }
     else
@@ -196,11 +175,13 @@ int run_in_container(clone_args *args)
             perror("wait");
             umount("/proc");
             umount("/sys/fs/cgroup");
-            return -1;
+            exit(1);
         }
+
+        umount("/proc");
+        umount("/sys/fs/cgroup");
+        exit(WEXITSTATUS(status));
     }
 
-    umount("/proc");
-    umount("/sys/fs/cgroup");
-    return 0;
+    exit(0);
 }

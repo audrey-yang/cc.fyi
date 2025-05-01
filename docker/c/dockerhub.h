@@ -5,11 +5,26 @@
 #include <stdlib.h>
 #include <jansson.h>
 
+/**
+ * @brief Structure to hold the response data from the cURL request.
+ *
+ * This structure contains a pointer to the response data and its size.
+ *
+ * @param response Pointer to the response data.
+ * @param size Size of the response data.
+ */
 typedef struct memory_struct
 {
     char *response;
     size_t size;
 } memory;
 
-int get_token(char *token, char *image_name);
-int pull_layers(char *image_name, char *token);
+/**
+ * @brief Pulls a Docker image from Docker Hub.
+ *
+ * This function retrieves the image from Docker Hub and stores it in the local system at /tmp/rootfs.
+ *
+ * @param image_name The name of the Docker image to pull
+ * @return 0 on success, -1 on failure
+ */
+int pull_image(char *image_name);
