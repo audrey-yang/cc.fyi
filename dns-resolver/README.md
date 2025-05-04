@@ -4,4 +4,4 @@ Following the [Build Your Own DNS Resolver](https://codingchallenges.fyi/challen
 
 ## How to run
 
-Compile the project with `bazel build main` and run with `bazel run main <name>`.
+Compile the project with `bazel build dns-resolver` and run with `bazel run dns-resolver <name>`.

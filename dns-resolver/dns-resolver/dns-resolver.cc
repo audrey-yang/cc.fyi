@@ -51,6 +51,7 @@ DNSMessageResponse DNSMessageRequest::send_to_ns(uint32_t query_ns)
 {
     std::vector<uint8_t> message = build_byte_string_message();
 
+    // Open socket, set timeout to 0.5s
     int sockfd = socket(AF_INET, SOCK_DGRAM, 0);
     struct timeval tv;
     tv.tv_sec = 0;
@@ -65,6 +66,7 @@ DNSMessageResponse DNSMessageRequest::send_to_ns(uint32_t query_ns)
     dns_server.sin_family = AF_INET;
     dns_server.sin_port = htons(53);
 
+    // Send DNS message
     int bytes_sent = sendto(sockfd, &message[0], message.size(), 0, (sockaddr *)&dns_server, sizeof(dns_server));
     if (bytes_sent < 0)
     {
@@ -72,6 +74,7 @@ DNSMessageResponse DNSMessageRequest::send_to_ns(uint32_t query_ns)
         return DNSMessageResponse();
     }
 
+    // Receive response
     uint8_t response[65535];
     int bytes_recv = recvfrom(sockfd, response, 65535, 0, NULL, NULL);
     close(sockfd);
@@ -107,37 +110,46 @@ void DNSMessageResponse::parse_response(std::vector<uint8_t> response)
     header.ARCOUNT = get_x_bytes(response, 2, 10);
 
     // Question
-    int str_ind = 12;
-    question.QNAME = parse_dns_name(response, str_ind);
-    question.QTYPE = get_x_bytes(response, 2, str_ind);
-    str_ind += 2;
-    question.QCLASS = get_x_bytes(response, 2, str_ind);
-    str_ind += 2;
+    int ind = 12;
+    question.QNAME = parse_dns_name(response, ind);
+    question.QTYPE = get_x_bytes(response, 2, ind);
+    ind += 2;
+    question.QCLASS = get_x_bytes(response, 2, ind);
+    ind += 2;
 
+    // Parse answer section
     for (int i = 0; i < header.ANCOUNT; i++)
     {
         Answer answer;
-        parse_answer(answer, response, str_ind);
+        parse_answer(answer, response, ind);
         answers.push_back(answer);
     }
 
+    // Parse authorities section
     for (int i = 0; i < header.NSCOUNT; i++)
     {
         Answer answer;
-        parse_answer(answer, response, str_ind);
+        parse_answer(answer, response, ind);
         nss.push_back(answer);
     }
 
+    // Parse additional resources section
     for (int i = 0; i < header.ARCOUNT; i++)
     {
         Answer answer;
-        parse_answer(answer, response, str_ind);
+        parse_answer(answer, response, ind);
         additionals.push_back(answer);
     }
 }
 
 int resolve_dns_recursive(const char *query_name, uint32_t query_ns, in_addr_t *res_ip_addr)
 {
+    if (strlen(query_name) == 0)
+    {
+        return -1;
+    }
+
+    // Create request and send to nameserver
     DNSMessageRequest req(query_name);
     DNSMessageResponse res = req.send_to_ns(query_ns);
     if (!res.isOk)
@@ -145,14 +157,17 @@ int resolve_dns_recursive(const char *query_name, uint32_t query_ns, in_addr_t *
         return -1;
     }
 
+    // Return if we find an answer
     if (res.answers.size() > 0)
     {
         *res_ip_addr = htonl(get_x_bytes(res.answers[0].RDATA, 4, 0));
         return 0;
     }
 
+    // Try to resolve nameservers to ask
     for (Answer ns : res.nss)
     {
+        // Try to find matching A record in additional resources
         int matching_records = 0;
         for (Answer add : res.additionals)
         {
@@ -166,7 +181,8 @@ int resolve_dns_recursive(const char *query_name, uint32_t query_ns, in_addr_t *
                 matching_records++;
             }
         }
-        // Try to discover IP address if not in additional
+
+        // Try to discover IP address if not in additionals
         if (matching_records == 0)
         {
             uint32_t next_ip_addr;
@@ -179,6 +195,7 @@ int resolve_dns_recursive(const char *query_name, uint32_t query_ns, in_addr_t *
             }
         }
     }
+
     return -1;
 }
 
@@ -192,5 +209,5 @@ in_addr_t resolve_dns(const char *query_name)
     }
 
     std::cerr << "Error: could not resolve " << query_name << std::endl;
-    return -1;
+    return INADDR_NONE;
 }
