@@ -8,7 +8,7 @@ struct Header
   uint8_t OPCODE = 0;
   bool AA = false;
   bool TC = false;
-  bool RD = true;
+  bool RD = false;
   bool RA = false;
   uint8_t RCODE = 0;
   uint16_t QDCOUNT = 1;
