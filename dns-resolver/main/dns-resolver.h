@@ -1,3 +1,4 @@
+#pragma once
 #include <cstdint>
 #include <string>
 
@@ -32,4 +33,5 @@ struct Answer
   uint32_t TTL;
   uint16_t RDLENGTH;
   std::vector<uint8_t> RDATA;
+  std::string RDATA_STR;
 };

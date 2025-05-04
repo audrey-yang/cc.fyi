@@ -10,95 +10,16 @@
 #include <arpa/inet.h>
 
 #include "dns-resolver.h"
-
-uint64_t get_x_bytes(std::vector<uint8_t> &vec, int x, int offset)
-{
-    uint64_t res = 0;
-    for (int i = 0; i < x; i++)
-    {
-        res |= vec[offset + i] << (8 * (x - 1 - i));
-    }
-    return res;
-}
-
-std::string get_dns_name(std::vector<uint8_t> &response, int &ind)
-{
-    std::string name;
-    int len = response[ind++];
-    while (1)
-    {
-        if (len >> 6 == 3) // check if we have a pointer
-        {
-            int new_ind = (len & 0x3F) << 8 | response[ind++];
-            printf("got a pointer to %d... ", new_ind);
-            name.append(get_dns_name(response, new_ind));
-            break;
-        }
-
-        for (int i = 0; i < len; i++)
-        {
-            name.push_back(response[ind++]);
-        }
-
-        len = response[ind++];
-        if (len == 0)
-        {
-            break;
-        }
-        name.push_back('.');
-    }
-    return name;
-}
-
-void read_answer(Answer &answer, std::vector<uint8_t> &response, int &str_ind)
-{
-    answer.NAME = get_dns_name(response, str_ind);
-    std::cout << "NAME: " << answer.NAME << std::endl;
-    answer.TYPE = get_x_bytes(response, 2, str_ind);
-    str_ind += 2;
-    answer.CLASS = get_x_bytes(response, 2, str_ind);
-    str_ind += 2;
-    answer.TTL = get_x_bytes(response, 4, str_ind);
-    str_ind += 4;
-    answer.RDLENGTH = get_x_bytes(response, 2, str_ind);
-    str_ind += 2;
-
-    if (answer.TYPE == 2)
-    {
-        std::string dns_name = get_dns_name(response, str_ind);
-        std::vector<uint8_t> dns_name_vec(dns_name.begin(), dns_name.end());
-        answer.RDATA = dns_name_vec;
-    }
-    else
-    {
-        for (int j = 0; j < answer.RDLENGTH; j++)
-        {
-            answer.RDATA.push_back(response[str_ind]);
-            str_ind++;
-        }
-    }
-
-    std::cout << "RDATA " << answer.TYPE << ", " << answer.CLASS << ": ";
-    for (uint8_t c : answer.RDATA)
-    {
-        if (answer.TYPE == 2)
-        {
-            printf("%c", char(c));
-        }
-        else
-        {
-            printf("%d", c);
-        }
-    }
-    std::cout << std::endl;
-}
+#include "parser-helper.h"
 
 class DNSMessage
 {
 public:
     DNSMessage() = default;
     DNSMessage(std::string name) : question{std::move(name)} {}
-    uint32_t query_nameserver = 0;
+    std::vector<Answer> answers;
+    std::vector<Answer> nss;
+    std::vector<Answer> additionals;
 
     std::vector<uint8_t> build_byte_string_message()
     {
@@ -167,9 +88,9 @@ public:
 
         printf("QDCOUNT %d, ANCOUNT %d, NSCOUNT %d, ARCOUNT %d\n", header.QDCOUNT, header.ANCOUNT, header.NSCOUNT, header.ARCOUNT);
 
-        // The question
+        // Question
         int str_ind = 12;
-        question.QNAME = get_dns_name(response, str_ind);
+        question.QNAME = parse_dns_name(response, str_ind);
         question.QTYPE = get_x_bytes(response, 2, str_ind);
         str_ind += 2;
         question.QCLASS = get_x_bytes(response, 2, str_ind);
@@ -182,8 +103,8 @@ public:
         for (int i = 0; i < header.ANCOUNT; i++)
         {
             Answer answer;
+            parse_answer(answer, response, str_ind);
             answers.push_back(answer);
-            read_answer(answer, response, str_ind);
         }
 
         std::cout << std::endl
@@ -191,8 +112,8 @@ public:
         for (int i = 0; i < header.NSCOUNT; i++)
         {
             Answer answer;
+            parse_answer(answer, response, str_ind);
             nss.push_back(answer);
-            read_answer(answer, response, str_ind);
         }
 
         std::cout << std::endl
@@ -200,35 +121,26 @@ public:
         for (int i = 0; i < header.ARCOUNT; i++)
         {
             Answer answer;
+            parse_answer(answer, response, str_ind);
             additionals.push_back(answer);
-            read_answer(answer, response, str_ind);
-
-            for (Answer ns : nss)
-            {
-                if (ns.NAME.compare(answer.NAME) && answer.TYPE == 1)
-                {
-                    uint64_t converted_rdata = 0;
-                    for (int k = 0; k < answer.RDLENGTH; k++)
-                    {
-                        converted_rdata |= answer.RDATA[k] << (answer.RDLENGTH - k);
-                    }
-                    query_nameserver = converted_rdata;
-                }
-            }
         }
     }
 
 private:
     Header header;
     Question question;
-    std::vector<Answer> answers;
-    std::vector<Answer> nss;
-    std::vector<Answer> additionals;
 };
 
 std::vector<uint8_t> sent_to_ns(std::vector<uint8_t> message, uint32_t query_ns)
 {
     int sockfd = socket(AF_INET, SOCK_DGRAM, 0);
+    struct timeval tv;
+    tv.tv_sec = 0;
+    tv.tv_usec = 100000;
+    if (setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv)) < 0)
+    {
+        perror("setsockopt");
+    }
 
     struct sockaddr_in dns_server;
     dns_server.sin_addr.s_addr = query_ns;
@@ -240,38 +152,60 @@ std::vector<uint8_t> sent_to_ns(std::vector<uint8_t> message, uint32_t query_ns)
 
     uint8_t response[65535];
     int bytes_recv = recvfrom(sockfd, response, 65535, 0, NULL, NULL);
-    std::cout << bytes_recv << std::endl;
-
+    std::cout << "Received " << bytes_recv << " bytes " << std::endl;
     close(sockfd);
 
-    for (int i = 0; i < bytes_recv; i++)
+    if (bytes_recv < 0)
     {
-        printf("%02x", response[i]);
+        std::vector<uint8_t> response_vec;
+        return response_vec;
     }
-    std::cout << std::endl;
 
     std::vector<uint8_t> response_vec(response, response + bytes_recv);
     return response_vec;
 }
 
+uint32_t resolve(uint32_t query_ns)
+{
+    DNSMessage message("dns.google.com");
+    std::vector<uint8_t> message_bytes = message.build_byte_string_message();
+    std::vector<uint8_t> response = sent_to_ns(message_bytes, query_ns);
+    if (response.size() == 0)
+    {
+        return 1;
+    }
+    message.parse_response(response);
+    std::cout << std::endl;
+    if (message.answers.size() > 0)
+    {
+        std::cout << "Found it! ";
+        for (uint8_t c : message.answers[0].RDATA)
+        {
+
+            printf("%d", c);
+        }
+        std::cout << std::endl;
+        return 0;
+    }
+    for (Answer ns : message.nss)
+    {
+        for (Answer add : message.additionals)
+        {
+            if (add.TYPE == 1 && ns.RDATA_STR.compare(add.NAME) == 0)
+            {
+                uint32_t ip_addr = htonl(get_x_bytes(add.RDATA, add.RDLENGTH, 0));
+                if (resolve(ip_addr) == 0)
+                {
+                    return 0;
+                }
+            }
+        }
+    }
+    return 1;
+}
+
 int main()
 {
     uint32_t query_ns = inet_addr("198.41.0.4");
-
-    while (1)
-    {
-        DNSMessage message("dns.google.com");
-        std::vector<uint8_t> message_bytes = message.build_byte_string_message();
-        for (int i = 0; i < message_bytes.size(); i++)
-        {
-            printf("%02x", message_bytes[i]);
-        }
-        std::cout << std::endl;
-        std::vector<uint8_t> response = sent_to_ns(message_bytes, query_ns);
-        message.parse_response(response);
-        if (message.query_nameserver > 0)
-        {
-            query_ns = message.query_nameserver;
-        }
-    }
+    resolve(query_ns);
 }
