@@ -9,4 +9,4 @@ Implementations of problems from John Crickett's [Coding Challenges](https://cod
 | [JSON Parser](./json-parser/README.md)   | go       | In progress |
 | [Docker](./docker/go/README.md)          | go       | In progress |
 | [Docker](./docker/c/README.md)           | C        | ✓           |
-| [DNS Resolver](./dns-resolver/README.md) | C++      | In progress |
+| [DNS Resolver](./dns-resolver/README.md) | C++      | ✓           |
