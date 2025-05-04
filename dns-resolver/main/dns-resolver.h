@@ -23,3 +23,13 @@ struct Question
   uint16_t QTYPE = 1;
   uint16_t QCLASS = 1;
 };
+
+struct Answer
+{
+  std::string NAME;
+  uint16_t TYPE;
+  uint16_t CLASS;
+  uint32_t TTL;
+  uint16_t RDLENGTH;
+  std::vector<uint8_t> RDATA;
+};
