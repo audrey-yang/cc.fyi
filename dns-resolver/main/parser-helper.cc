@@ -16,7 +16,7 @@ std::string parse_dns_name(std::vector<uint8_t> &response, int &ind)
     int len = response[ind++];
     while (1)
     {
-        if (len >> 6 == 3) // check if we have a pointer
+        if (len >> 6 == 3) // check if we have a pointer (first 2 bits are 1)
         {
             int new_ind = (len & 0x3F) << 8 | response[ind++];
             name.append(parse_dns_name(response, new_ind));
@@ -41,7 +41,6 @@ std::string parse_dns_name(std::vector<uint8_t> &response, int &ind)
 void parse_answer(Answer &answer, std::vector<uint8_t> &response, int &str_ind)
 {
     answer.NAME = std::move(parse_dns_name(response, str_ind));
-    std::cout << "NAME: " << answer.NAME << std::endl;
     answer.TYPE = get_x_bytes(response, 2, str_ind);
     str_ind += 2;
     answer.CLASS = get_x_bytes(response, 2, str_ind);
@@ -63,12 +62,4 @@ void parse_answer(Answer &answer, std::vector<uint8_t> &response, int &str_ind)
             str_ind++;
         }
     }
-
-    std::cout << "RDATA " << answer.TYPE << ", " << answer.CLASS << ": ";
-    for (uint8_t c : answer.RDATA)
-    {
-        printf("%d", c);
-    }
-    std::cout << answer.RDATA_STR;
-    std::cout << std::endl;
 }
