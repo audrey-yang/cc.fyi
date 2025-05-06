@@ -3,17 +3,37 @@
 #include <arpa/inet.h>
 #include <unistd.h>
 
-struct in_addr *get_ip_addr(char *hostname)
+int get_ip_addr(struct in_addr &address, char *hostname)
 {
-    struct hostent *host = gethostbyname(hostname);
-    struct in_addr *address = NULL;
-    char **ip_addr_list = host->h_addr_list;
-    for (int i = 0; ip_addr_list[i] != NULL; i++)
+    struct addrinfo hints, *result, *p;
+
+    memset(&hints, 0, sizeof(hints));
+    hints.ai_family = AF_INET;
+    hints.ai_socktype = SOCK_DGRAM;
+    hints.ai_protocol = IPPROTO_UDP;
+
+    int status = getaddrinfo(hostname, NULL, &hints, &result);
+    if (status)
     {
-        address = (struct in_addr *)ip_addr_list[i];
+        perror("getaddrinfo");
+        return -1;
+    }
+
+    for (p = result; p != NULL; p = p->ai_next)
+    {
+        struct sockaddr_in *ai_addr = (struct sockaddr_in *)p->ai_addr;
+        address.s_addr = ai_addr->sin_addr.s_addr;
+
+        if (p->ai_next != NULL)
+        {
+            std::cerr << "traceroute: Warning: " << hostname << " has multiple addresses " << "using " << inet_ntoa(address) << std::endl;
+        }
         break;
     }
-    return address;
+
+    freeaddrinfo(result);
+
+    return 0;
 }
 
 int send_recv_message(struct in_addr *server_ip, char *message)
@@ -59,11 +79,16 @@ int send_recv_message(struct in_addr *server_ip, char *message)
 
 int main(int argc, char **argv)
 {
-    struct in_addr *address = get_ip_addr(argv[1]);
-    fprintf(stderr, "traceroute to %s (%s), %d hops max, %d byte packets\n", argv[1], inet_ntoa(*address), 64, 32);
+    struct in_addr address;
+    if (get_ip_addr(address, argv[1]) < 0)
+    {
+        return 1;
+    }
+
+    fprintf(stderr, "traceroute to %s (%s), %d hops max, %d byte packets\n", argv[1], inet_ntoa(address), 64, 32);
 
     char message[32];
     strcpy(message, "codingchallenges.fyi traceroute");
-    send_recv_message(address, message);
+    send_recv_message(&address, message);
     return 0;
 }
