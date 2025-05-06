@@ -36,6 +36,17 @@ int get_ip_addr(struct in_addr &address, char *hostname)
     return 0;
 }
 
+void print_hostname(struct sockaddr_in &address)
+{
+    char hostname[256];
+    int res = getnameinfo((struct sockaddr *)&address, sizeof(address), hostname, 256, NULL, 0, NI_DGRAM);
+    if (res)
+    {
+        std::cerr << gai_strerror(res) << std::endl;
+    }
+    std::cerr << "(" << hostname << ")";
+}
+
 int send_recv_message(struct in_addr *server_ip, char *message)
 {
     // Open UDP socket for sending
@@ -72,7 +83,9 @@ int send_recv_message(struct in_addr *server_ip, char *message)
         return -1;
     }
 
-    std::cerr << 1 << "\t" << inet_ntoa(recv_addr.sin_addr) << std::endl;
+    std::cerr << 1 << "\t" << inet_ntoa(recv_addr.sin_addr) << " ";
+    print_hostname(recv_addr);
+    std::cerr << std::endl;
     close(receiver_sock);
     return 0;
 }
