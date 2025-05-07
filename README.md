@@ -10,4 +10,4 @@ Implementations of problems from John Crickett's [Coding Challenges](https://cod
 | [Docker](./docker/go/README.md)          | go       | In progress |
 | [Docker](./docker/c/README.md)           | C        | ✓           |
 | [DNS Resolver](./dns-resolver/README.md) | C++      | ✓           |
-| [Traceroute](./traceroute/README.md)     | C++      | In progress |
+| [Traceroute](./traceroute/README.md)     | C++      | ✓           |

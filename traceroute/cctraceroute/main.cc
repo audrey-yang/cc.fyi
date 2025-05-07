@@ -4,6 +4,16 @@
 #include <unistd.h>
 #include <chrono>
 
+/**
+ * @brief Resolves a hostname to an IPv4 address
+ *
+ * Uses getaddrinfo to resolve the specified hostname into an IPv4 address.
+ * If multiple addresses are returned, it selects the first and prints a warning.
+ *
+ * @param address: Reference to an in_addr struct that will be filled with the resolved IP address
+ * @param hostname: The hostname to resolve
+ * @return int: 0 on success, or -1 if resolution fails
+ */
 int get_ip_addr(struct in_addr &address, char *hostname)
 {
     struct addrinfo hints, *result, *p;
@@ -27,7 +37,8 @@ int get_ip_addr(struct in_addr &address, char *hostname)
 
         if (p->ai_next != NULL)
         {
-            std::cerr << "traceroute: Warning: " << hostname << " has multiple addresses " << "using " << inet_ntoa(address) << std::endl;
+            std::cerr << "traceroute: Warning: " << hostname << " has multiple addresses "
+                      << "using " << inet_ntoa(address) << std::endl;
         }
         break;
     }
@@ -37,6 +48,14 @@ int get_ip_addr(struct in_addr &address, char *hostname)
     return 0;
 }
 
+/**
+ * @brief Prints the hostname for a given IPv4 address
+ *
+ * Uses getnameinfo to perform a reverse DNS lookup on the provided address.
+ * If successful, prints the hostname to std::cerr. Otherwise, prints an error message.
+ *
+ * @param address: sockaddr_in structure containing the IPv4 address to look up
+ */
 void print_hostname(struct sockaddr_in &address)
 {
     char hostname[256];
@@ -49,6 +68,19 @@ void print_hostname(struct sockaddr_in &address)
     std::cerr << "(" << hostname << ")";
 }
 
+/**
+ * @brief Traces the network path (hops) to a specified IPv4 address
+ *
+ * Sends UDP packets with increasing TTL values toward the destination IP address.
+ * Receives ICMP responses from intermediate routers to determine each hop along the route.
+ * Measures and prints the round-trip time for each hop.
+ *
+ * @param server_ip: Pointer to the target IPv4 address
+ * @param packet: Raw message to send in the UDP packet
+ * @param packet_len: Length of the packet in bytes
+ * @param max_iters: Maximum number of hops to trace before giving up
+ * @return int: 0 on success (target reached), or -1 on failure
+ */
 int trace_ip_route(struct in_addr *server_ip, char *packet, int packet_len, int max_iters)
 {
     // Open UDP socket for sending
@@ -131,6 +163,7 @@ int main(int argc, char **argv)
     struct in_addr address;
     if (get_ip_addr(address, argv[1]) < 0)
     {
+        std::cerr << "Error: could not resolve hostname" << std::endl;
         return 1;
     }
 
