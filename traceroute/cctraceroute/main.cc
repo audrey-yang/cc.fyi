@@ -44,37 +44,39 @@ void print_hostname(struct sockaddr_in &address)
     if (res)
     {
         std::cerr << gai_strerror(res) << std::endl;
+        return;
     }
     std::cerr << "(" << hostname << ")";
 }
 
-int send_recv_message(struct in_addr *server_ip, char *packet, int max_iters)
+int trace_ip_route(struct in_addr *server_ip, char *packet, int packet_len, int max_iters)
 {
     // Open UDP socket for sending
     int sender_sock = socket(AF_INET, SOCK_DGRAM, 0);
-
     struct sockaddr_in send_addr;
-    send_addr.sin_addr = *server_ip;
-    send_addr.sin_family = AF_INET;
-    send_addr.sin_port = htons(33434);
 
-    // Open ICMP socket for receiving
+    // Open ICMP socket for receiving with 5s timeout
     int receiver_sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_ICMP);
 
-    for (int iter = 0; iter < max_iters; iter++)
+    struct timeval tv;
+    tv.tv_sec = 5;
+    tv.tv_usec = 0;
+    setsockopt(receiver_sock, SOL_SOCKET, SO_RCVTIMEO, (const char *)&tv, sizeof tv);
+
+    int iter;
+    for (iter = 1; iter <= max_iters; iter++)
     {
         // Set TTL
         int ttl = iter;
         setsockopt(sender_sock, IPPROTO_IP, IP_TTL, &ttl, sizeof(ttl));
 
-        struct timeval tv;
-        tv.tv_sec = 0;
-        tv.tv_usec = 50000;
-        setsockopt(receiver_sock, SOL_SOCKET, SO_RCVTIMEO, (const char *)&tv, sizeof tv);
-
         // Send message
+        send_addr.sin_addr = *server_ip;
+        send_addr.sin_family = AF_INET;
+        send_addr.sin_port = htons(33434);
+
         auto start = std::chrono::high_resolution_clock::now();
-        int bytes_sent = sendto(sender_sock, packet, 32, 0, (sockaddr *)&send_addr, sizeof(send_addr));
+        int bytes_sent = sendto(sender_sock, packet, packet_len, 0, (sockaddr *)&send_addr, sizeof(sockaddr_in));
         if (bytes_sent < 0)
         {
             perror("sendto");
@@ -93,7 +95,7 @@ int send_recv_message(struct in_addr *server_ip, char *packet, int max_iters)
             continue;
         }
 
-        auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+        auto duration = std::chrono::duration_cast<std::chrono::duration<double, std::milli>>(end - start);
 
         std::cerr << iter << "  " << inet_ntoa(recv_addr.sin_addr) << " ";
         print_hostname(recv_addr);
@@ -105,8 +107,22 @@ int send_recv_message(struct in_addr *server_ip, char *packet, int max_iters)
         }
     }
 
-    close(sender_sock);
-    close(receiver_sock);
+    if (close(sender_sock) < 0)
+    {
+        perror("close");
+        return -1;
+    }
+
+    if (close(receiver_sock) < 0)
+    {
+        perror("close");
+        return -1;
+    }
+
+    if (iter > max_iters)
+    {
+        return -1;
+    }
     return 0;
 }
 
@@ -118,10 +134,19 @@ int main(int argc, char **argv)
         return 1;
     }
 
-    fprintf(stderr, "traceroute to %s (%s), %d hops max, %d byte packets\n", argv[1], inet_ntoa(address), 64, 32);
-
+    int max_iters = 64;
     char packet[32];
     strcpy(packet, "codingchallenges.fyi traceroute");
-    send_recv_message(&address, packet, 64);
+
+    std::cerr << "traceroute to " << argv[1] << " (" << inet_ntoa(address) << ") "
+              << max_iters << " hops max, 32 byte packets" << std::endl;
+
+    if (trace_ip_route(&address, packet, 32, max_iters) < 0)
+    {
+        std::cerr << "Error: could not reach " << argv[1] << " within "
+                  << max_iters << " hops" << std::endl;
+        return 1;
+    }
+
     return 0;
 }
