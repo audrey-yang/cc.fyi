@@ -6,7 +6,7 @@
 #include <string>
 #include <unistd.h>
 
-#include "dns-resolver.h"
+#include "dns-resolver-lib.h"
 
 /**
  * @brief Gets the next x bytes of a vector

@@ -1,4 +1,4 @@
-#include "dns-resolver.h"
+#include "src/lib/dns-resolver-lib.h"
 
 int main(int argc, char **argv)
 {

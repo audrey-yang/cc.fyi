@@ -1,5 +1,5 @@
-#include "dns-resolver.h"
-#include "parser-helper.h"
+#include "dns-resolver-lib.h"
+#include "parser-lib.h"
 
 std::vector<uint8_t> DNSMessageRequest::build_byte_string_message()
 {
