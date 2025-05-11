@@ -5,3 +5,7 @@ Following the [Build Your Own DNS Resolver](https://codingchallenges.fyi/challen
 ## How to run
 
 Compile the project with `bazel build ...` and run with `bazel run //src/main:main <hostname>`.
+
+### Running tests
+
+Run tests with `bazel test --test_output=all //tests:test`.
