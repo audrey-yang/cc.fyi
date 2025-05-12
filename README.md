@@ -11,3 +11,4 @@ Implementations of problems from John Crickett's [Coding Challenges](https://cod
 | [Docker](./docker/c/README.md)           | C        | ✓           |
 | [DNS Resolver](./dns-resolver/README.md) | C++      | ✓           |
 | [Traceroute](./traceroute/README.md)     | C++      | ✓           |
+| [Port Scanner](./port-scanner/README.md) | C++      | In progress |

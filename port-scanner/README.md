@@ -4,4 +4,4 @@ Following the [Build Your Own Port Scanner](https://codingchallenges.fyi/challen
 
 ## How to run
 
-Compile the project with `bazel build ...` and run with `./bazel-bin/ccscan --host=<hostname> --port=<port_number>`.
+Compile the project with `bazel build ...` and run with `./bazel-bin/ccscan/ccscan --host=<hostname> --port=<port_number>`.
