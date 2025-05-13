@@ -3,6 +3,7 @@
 #include <sys/socket.h>
 #include <netdb.h>
 #include <unistd.h>
+#include <pthread.h>
 #include <cxxopts.hpp>
 
 int get_ip_addr(struct in_addr &address, std::string &hostname)
@@ -33,19 +34,32 @@ int get_ip_addr(struct in_addr &address, std::string &hostname)
     return 0;
 }
 
-void check_port(std::string &hostname, uint16_t port)
+struct check_port_params
 {
-    struct sockaddr_in server;
-    server.sin_family = AF_INET;
-    get_ip_addr(server.sin_addr, hostname);
-    server.sin_port = htons(port);
+    struct sockaddr_in *server;
+    uint16_t port;
+};
+
+void *check_port(void *params_in)
+{
+    struct check_port_params *params = (struct check_port_params *)params_in;
+    uint16_t port = params->port;
+    struct sockaddr_in *server = params->server;
+    server->sin_port = htons(port);
 
     int sockfd = socket(AF_INET, SOCK_STREAM, 0);
-    if (connect(sockfd, (struct sockaddr *)&server, sizeof(server)) == 0)
+    struct timeval tv;
+    tv.tv_sec = 0;
+    tv.tv_usec = 1000 * 350;
+    setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, (const char *)&tv, sizeof(tv));
+
+    if (connect(sockfd, (struct sockaddr *)server, sizeof(*server)) == 0)
     {
         std::cout << "Port: " << port << " is open" << std::endl;
     }
     close(sockfd);
+    pthread_exit(0);
+    return NULL;
 }
 
 int main(int argc, char **argv)
@@ -59,28 +73,48 @@ int main(int argc, char **argv)
 
     if (result.count("host") > 0)
     {
-        std::cout << "Scanning host: " << result["host"].as<std::string>() << " ";
+        std::cerr << "Scanning host: " << result["host"].as<std::string>() << " ";
     }
     if (result.count("port") > 0)
     {
-        std::cout << "port: " << result["port"].as<int>();
+        std::cerr << "port: " << result["port"].as<int>();
     }
-    std::cout << std::endl;
+    std::cerr << std::endl;
 
     std::string hostname = result["host"].as<std::string>();
     int port = result["port"].as<int>();
 
+    struct sockaddr_in server_addr;
+    server_addr.sin_family = AF_INET;
+    get_ip_addr(server_addr.sin_addr, hostname);
+
+    struct check_port_params params;
+    params.server = &server_addr;
+
     if (port < 0)
     {
         // Perform vanilla scan
-        for (uint16_t port = 1; port != 0; port++)
+        pthread_t threads[65535];
+        for (uint16_t i = 1; i != 0; i++)
         {
-            check_port(hostname, port);
+            params.port = i;
+            if (pthread_create(&threads[i - 1], NULL, check_port, (void *)&params))
+            {
+                std::cerr << "Error creating thread " << i - 1 << std::endl;
+            }
+        }
+        for (uint16_t i = 1; i != 0; i++)
+        {
+            if (pthread_join(threads[i - 1], NULL))
+            {
+                std::cerr << "Error joining thread " << i - 1 << std::endl;
+            }
         }
     }
     else
     {
-        check_port(hostname, port);
+        params.port = port;
+        check_port(&params);
     }
 
     return 0;
