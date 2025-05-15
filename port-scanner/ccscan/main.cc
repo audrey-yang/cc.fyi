@@ -6,6 +6,13 @@
 #include <pthread.h>
 #include <cxxopts.hpp>
 
+typedef struct port_scan_thread_args_struct
+{
+    struct sockaddr_in server;
+    uint16_t port;
+    char hostname[64];
+} port_scan_args;
+
 int get_ip_addr(struct in_addr &address, std::string &hostname)
 {
     struct addrinfo hints, *result, *p;
@@ -34,16 +41,9 @@ int get_ip_addr(struct in_addr &address, std::string &hostname)
     return 0;
 }
 
-struct check_port_params
-{
-    struct sockaddr_in server;
-    uint16_t port;
-    char hostname[16];
-};
-
 void *check_port(void *params_in)
 {
-    struct check_port_params *params = (struct check_port_params *)params_in;
+    port_scan_args *params = (port_scan_args *)params_in;
     uint16_t port = params->port;
     struct sockaddr_in server = params->server;
     server.sin_port = htons(port);
@@ -65,12 +65,12 @@ void *check_port(void *params_in)
 
 void vanilla_scan(std::string &hostname, int port)
 {
-    std::cerr << "Scanning host: " << hostname << " ";
+    std::cout << "Scanning host: " << hostname << " ";
     if (port >= 0)
     {
-        std::cerr << "port: " << port;
+        std::cout << "port: " << port;
     }
-    std::cerr << std::endl;
+    std::cout << std::endl;
 
     struct sockaddr_in server_addr;
     server_addr.sin_family = AF_INET;
@@ -79,14 +79,16 @@ void vanilla_scan(std::string &hostname, int port)
     if (port < 0)
     {
         pthread_t threads[65535];
+        port_scan_args *args_list[65536];
         for (uint16_t i = 1; i != 0; i++)
         {
-            struct check_port_params params;
-            params.server.sin_family = AF_INET;
-            params.server.sin_addr.s_addr = server_addr.sin_addr.s_addr;
-            params.port = i;
+            port_scan_args *params = (port_scan_args *)malloc(sizeof(port_scan_args));
+            params->server.sin_family = AF_INET;
+            params->server.sin_addr.s_addr = server_addr.sin_addr.s_addr;
+            params->port = i;
+            args_list[i] = params;
 
-            if (pthread_create(&threads[i - 1], NULL, check_port, (void *)&params))
+            if (pthread_create(&threads[i - 1], NULL, check_port, (void *)params))
             {
                 std::cerr << "Error creating thread " << i - 1 << std::endl;
             }
@@ -97,11 +99,12 @@ void vanilla_scan(std::string &hostname, int port)
             {
                 std::cerr << "Error joining thread " << i - 1 << std::endl;
             }
+            free(args_list[i]);
         }
     }
     else
     {
-        struct check_port_params params;
+        port_scan_args params;
         params.server.sin_family = AF_INET;
         params.server.sin_addr.s_addr = server_addr.sin_addr.s_addr;
         params.port = port;
@@ -111,7 +114,7 @@ void vanilla_scan(std::string &hostname, int port)
 
 void *check_port_in_sweep(void *params_in)
 {
-    struct check_port_params *params = (struct check_port_params *)params_in;
+    port_scan_args *params = (port_scan_args *)params_in;
     uint16_t port = params->port;
     char *hostname = params->hostname;
     struct sockaddr_in server = params->server;
@@ -120,12 +123,12 @@ void *check_port_in_sweep(void *params_in)
     int sockfd = socket(AF_INET, SOCK_STREAM, 0);
     struct timeval tv;
     tv.tv_sec = 0;
-    tv.tv_usec = 1000 * 400;
+    tv.tv_usec = 1000 * 500;
     setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, (const char *)&tv, sizeof(tv));
 
     if (connect(sockfd, (struct sockaddr *)&server, sizeof(server)) == 0)
     {
-        std::cout << "Host " << hostname << " is active" << std::endl;
+        std::cout << "Host " << hostname << " is active on port 5000" << std::endl;
     }
 
     close(sockfd);
@@ -135,29 +138,33 @@ void *check_port_in_sweep(void *params_in)
 
 void sweep_scan(std::vector<std::string> &hostnames)
 {
-    pthread_t threads[65535];
+    std::vector<pthread_t> threads;
+    std::vector<port_scan_args *> args_list;
     for (int i = 0; i < hostnames.size(); i++)
     {
         auto &hostname = hostnames[i];
-        struct check_port_params params;
-        params.server.sin_family = AF_INET;
-        get_ip_addr(params.server.sin_addr, hostname);
-        strcpy(params.hostname, hostname.c_str());
-        params.port = 5000;
+        port_scan_args *params = (port_scan_args *)malloc(sizeof(port_scan_args));
+        params->server.sin_family = AF_INET;
+        get_ip_addr(params->server.sin_addr, hostname);
+        strcpy(params->hostname, hostname.c_str());
+        params->port = 5000;
 
-        if (pthread_create(&threads[i], NULL, check_port_in_sweep, (void *)&params))
+        pthread_t thread;
+        if (pthread_create(&thread, NULL, check_port_in_sweep, (void *)params))
         {
             std::cerr << "Error creating thread " << i << std::endl;
         }
+        threads.push_back(thread);
+        args_list.push_back(params);
     }
 
     for (int i = 0; i < hostnames.size(); i++)
     {
         if (pthread_join(threads[i], NULL))
         {
-            perror("pthread_join");
             std::cerr << "Error joining thread " << i << std::endl;
         }
+        free(args_list[i]);
     }
 }
 
@@ -179,13 +186,14 @@ void sweep_scan_from_wildcard(std::string hostname)
     int octet1_start = octets[0] == "*" ? 0 : std::stoi(octets[0]);
     int octet1_end = octets[0] == "*" ? 256 : octet1_start + 1;
     int octet2_start = octets[1] == "*" ? 0 : std::stoi(octets[1]);
-    int octet2_end = octets[1] == "*" ? 256 : octet1_start + 1;
+    int octet2_end = octets[1] == "*" ? 256 : octet2_start + 1;
     int octet3_start = octets[2] == "*" ? 0 : std::stoi(octets[2]);
-    int octet3_end = octets[2] == "*" ? 256 : octet1_start + 1;
+    int octet3_end = octets[2] == "*" ? 256 : octet3_start + 1;
     int octet4_start = octets[3] == "*" ? 0 : std::stoi(octets[3]);
-    int octet4_end = octets[3] == "*" ? 5 : octet1_start + 1;
+    int octet4_end = octets[3] == "*" ? 256 : octet4_start + 1;
 
     std::vector<pthread_t> threads;
+    std::vector<port_scan_args *> args_list;
     int num_threads = 0;
     for (; octet1_start < octet1_end; octet1_start++)
     {
@@ -198,7 +206,7 @@ void sweep_scan_from_wildcard(std::string hostname)
                     std::string ip_addr = std::to_string(octet1_start) + "." + std::to_string(octet2_start) +
                                           "." + std::to_string(octet3_start) + "." + std::to_string(octet4_start);
 
-                    struct check_port_params *params = (struct check_port_params *)malloc(sizeof(struct check_port_params));
+                    port_scan_args *params = (port_scan_args *)malloc(sizeof(port_scan_args));
                     strcpy(params->hostname, ip_addr.c_str());
                     params->server.sin_family = AF_INET;
                     inet_pton(AF_INET, ip_addr.c_str(), &params->server.sin_addr);
@@ -210,6 +218,7 @@ void sweep_scan_from_wildcard(std::string hostname)
                         std::cerr << "Error creating thread " << num_threads << std::endl;
                     }
                     threads.push_back(thread);
+                    args_list.push_back(params);
                     num_threads++;
                 }
             }
@@ -222,6 +231,7 @@ void sweep_scan_from_wildcard(std::string hostname)
         {
             std::cerr << "Error joining thread " << i << std::endl;
         }
+        free(args_list[i]);
     }
 }
 
@@ -252,6 +262,7 @@ int main(int argc, char **argv)
     {
         sweep_scan(hostnames);
     }
+    std::cout << "Scan complete" << std::endl;
 
     return 0;
 }

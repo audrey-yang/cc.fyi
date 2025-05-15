@@ -1,0 +1,1 @@
+bazel build ... && ./bazel-bin/ccscan/ccscan --host=127.0.0.1
