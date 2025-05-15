@@ -1,17 +1,4 @@
-#include <iostream>
-#include <arpa/inet.h>
-#include <sys/socket.h>
-#include <netdb.h>
-#include <unistd.h>
-#include <pthread.h>
-#include <cxxopts.hpp>
-
-typedef struct port_scan_thread_args_struct
-{
-    struct sockaddr_in server;
-    uint16_t port;
-    char hostname[64];
-} port_scan_args;
+#include "port-scanner-lib.h"
 
 int get_ip_addr(struct in_addr &address, std::string &hostname)
 {
@@ -72,9 +59,8 @@ void vanilla_scan(std::string &hostname, int port)
     }
     std::cout << std::endl;
 
-    struct sockaddr_in server_addr;
-    server_addr.sin_family = AF_INET;
-    get_ip_addr(server_addr.sin_addr, hostname);
+    struct in_addr server_in_addr;
+    get_ip_addr(server_in_addr, hostname);
 
     if (port < 0)
     {
@@ -84,7 +70,7 @@ void vanilla_scan(std::string &hostname, int port)
         {
             port_scan_args *params = (port_scan_args *)malloc(sizeof(port_scan_args));
             params->server.sin_family = AF_INET;
-            params->server.sin_addr.s_addr = server_addr.sin_addr.s_addr;
+            params->server.sin_addr.s_addr = server_in_addr.s_addr;
             params->port = i;
             args_list[i] = params;
 
@@ -106,7 +92,7 @@ void vanilla_scan(std::string &hostname, int port)
     {
         port_scan_args params;
         params.server.sin_family = AF_INET;
-        params.server.sin_addr.s_addr = server_addr.sin_addr.s_addr;
+        params.server.sin_addr.s_addr = server_in_addr.s_addr;
         params.port = port;
         check_port(&params);
     }
@@ -233,36 +219,4 @@ void sweep_scan_from_wildcard(std::string hostname)
         }
         free(args_list[i]);
     }
-}
-
-int main(int argc, char **argv)
-{
-    cxxopts::Options options("ccscan", "Port scanner");
-    options.add_options()(
-        "host", "host", cxxopts::value<std::vector<std::string>>())(
-        "port", "port number", cxxopts::value<int>()->default_value("-1"));
-
-    auto result = options.parse(argc, argv);
-    std::vector<std::string> hostnames = result["host"].as<std::vector<std::string>>();
-    int port = result["port"].as<int>();
-
-    if (hostnames.size() == 1)
-    {
-        std::string hostname = hostnames[0];
-        if (hostname.find('*') != std::string::npos)
-        {
-            sweep_scan_from_wildcard(hostname);
-        }
-        else
-        {
-            vanilla_scan(hostname, port);
-        }
-    }
-    else
-    {
-        sweep_scan(hostnames);
-    }
-    std::cout << "Scan complete" << std::endl;
-
-    return 0;
 }
