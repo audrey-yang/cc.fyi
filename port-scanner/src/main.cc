@@ -23,7 +23,7 @@ int main(int argc, char **argv)
         }
         else
         {
-            vanilla_scan(hostname, port);
+            full_scan(hostname, port);
         }
     }
     else

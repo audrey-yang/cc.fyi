@@ -28,29 +28,7 @@ int get_ip_addr(struct in_addr &address, std::string &hostname)
     return 0;
 }
 
-void *check_port(void *params_in)
-{
-    port_scan_args *params = (port_scan_args *)params_in;
-    uint16_t port = params->port;
-    struct sockaddr_in server = params->server;
-    server.sin_port = htons(port);
-
-    int sockfd = socket(AF_INET, SOCK_STREAM, 0);
-    struct timeval tv;
-    tv.tv_sec = 0;
-    tv.tv_usec = 1000 * 400;
-    setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, (const char *)&tv, sizeof(tv));
-
-    if (connect(sockfd, (struct sockaddr *)&server, sizeof(server)) == 0)
-    {
-        std::cout << "Port: " << port << " is open" << std::endl;
-    }
-    close(sockfd);
-    pthread_exit(0);
-    return NULL;
-}
-
-void vanilla_scan(std::string &hostname, int port)
+void full_scan(std::string &hostname, int port)
 {
     std::cout << "Scanning host: " << hostname << " ";
     if (port >= 0)
@@ -74,7 +52,7 @@ void vanilla_scan(std::string &hostname, int port)
             params->port = i;
             args_list[i] = params;
 
-            if (pthread_create(&threads[i - 1], NULL, check_port, (void *)params))
+            if (pthread_create(&threads[i - 1], NULL, check_port_vanilla, (void *)params))
             {
                 std::cerr << "Error creating thread " << i - 1 << std::endl;
             }
@@ -94,32 +72,8 @@ void vanilla_scan(std::string &hostname, int port)
         params.server.sin_family = AF_INET;
         params.server.sin_addr.s_addr = server_in_addr.s_addr;
         params.port = port;
-        check_port(&params);
+        check_port_vanilla(&params);
     }
-}
-
-void *check_port_in_sweep(void *params_in)
-{
-    port_scan_args *params = (port_scan_args *)params_in;
-    uint16_t port = params->port;
-    char *hostname = params->hostname;
-    struct sockaddr_in server = params->server;
-    server.sin_port = htons(port);
-
-    int sockfd = socket(AF_INET, SOCK_STREAM, 0);
-    struct timeval tv;
-    tv.tv_sec = 0;
-    tv.tv_usec = 1000 * 500;
-    setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, (const char *)&tv, sizeof(tv));
-
-    if (connect(sockfd, (struct sockaddr *)&server, sizeof(server)) == 0)
-    {
-        std::cout << "Host " << hostname << " is active on port 5000" << std::endl;
-    }
-
-    close(sockfd);
-    pthread_exit(0);
-    return NULL;
 }
 
 void sweep_scan(std::vector<std::string> &hostnames)
@@ -136,7 +90,7 @@ void sweep_scan(std::vector<std::string> &hostnames)
         params->port = 5000;
 
         pthread_t thread;
-        if (pthread_create(&thread, NULL, check_port_in_sweep, (void *)params))
+        if (pthread_create(&thread, NULL, check_port_in_sweep_vanilla, (void *)params))
         {
             std::cerr << "Error creating thread " << i << std::endl;
         }
@@ -199,7 +153,7 @@ void sweep_scan_from_wildcard(std::string hostname)
                     params->port = 5000;
 
                     pthread_t thread;
-                    if (pthread_create(&thread, NULL, check_port_in_sweep, (void *)params))
+                    if (pthread_create(&thread, NULL, check_port_in_sweep_vanilla, (void *)params))
                     {
                         std::cerr << "Error creating thread " << num_threads << std::endl;
                     }
