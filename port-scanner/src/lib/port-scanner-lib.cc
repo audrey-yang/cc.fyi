@@ -52,7 +52,7 @@ void full_scan(std::string &hostname, int port)
             params->port = i;
             args_list[i] = params;
 
-            if (pthread_create(&threads[i - 1], NULL, check_port_vanilla, (void *)params))
+            if (pthread_create(&threads[i - 1], NULL, check_port_syn, (void *)params))
             {
                 std::cerr << "Error creating thread " << i - 1 << std::endl;
             }
@@ -72,7 +72,7 @@ void full_scan(std::string &hostname, int port)
         params.server.sin_family = AF_INET;
         params.server.sin_addr.s_addr = server_in_addr.s_addr;
         params.port = port;
-        check_port_vanilla(&params);
+        check_port_syn(&params);
     }
 }
 

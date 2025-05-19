@@ -1,1 +1,1 @@
-bazel build ... && ./bazel-bin/ccscan/ccscan --host=127.0.0.1
+bazel build ... && sudo ./bazel-bin/src/ccscan --host=127.0.0.1 --port=5000

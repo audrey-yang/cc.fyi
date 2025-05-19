@@ -5,6 +5,7 @@
 
 int main(int argc, char **argv)
 {
+    std::cout << "hello" << std::endl;
     cxxopts::Options options("ccscan", "Port scanner");
     options.add_options()(
         "host", "host", cxxopts::value<std::vector<std::string>>())(

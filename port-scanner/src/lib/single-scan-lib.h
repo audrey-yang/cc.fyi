@@ -3,6 +3,10 @@
 #include <sys/socket.h>
 #include <unistd.h>
 #include <pthread.h>
+#include <netinet/tcp.h>
+#include <netinet/ip.h>
+
+#define PACKET_LEN 320
 
 /**
  * @brief Structure to hold arguments for port scanning threads.
@@ -36,3 +40,18 @@ void *check_port_syn(void *params_in);
  */
 void *check_port_in_sweep_vanilla(void *params_in);
 void *check_port_in_sweep_syn(void *params_in);
+
+struct iphdr
+{
+    unsigned char iph_ihl : 5, iph_ver : 4;
+    unsigned char iph_tos;
+    unsigned short int iph_len;
+    unsigned short int iph_ident;
+    unsigned char iph_flag;
+    unsigned short int iph_offset;
+    unsigned char iph_ttl;
+    unsigned char iph_protocol;
+    unsigned short int iph_chksum;
+    unsigned int iph_sourceip;
+    unsigned int iph_destip;
+};
