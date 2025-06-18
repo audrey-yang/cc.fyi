@@ -12,3 +12,4 @@ Implementations of problems from John Crickett's [Coding Challenges](https://cod
 | [DNS Resolver](./dns-resolver/README.md) | C++      | ✓           |
 | [Traceroute](./traceroute/README.md)     | C++      | ✓           |
 | [Port Scanner](./port-scanner/README.md) | C++      | In progress |
+| [Redis Server](./redis/README.md)        | go       | In progress |

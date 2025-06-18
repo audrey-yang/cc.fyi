@@ -12,7 +12,7 @@ func strToBytes(s string) message {
 	return message{BulkString, bytes}
 }
 
-func compare(result message, expected message) bool {
+func compareMessages(result message, expected message) bool {
 	if result.respType != expected.respType {
 		return false
 	}
@@ -20,7 +20,7 @@ func compare(result message, expected message) bool {
 		for i, v := range result.value.([]any) {
 			v, vok := v.(message)
 			e, eok := expected.value.([]message)
-			if !vok || !eok || !compare(v, e[i]) {
+			if !vok || !eok || !compareMessages(v, e[i]) {
 				return false
 			}
 		}
@@ -61,7 +61,7 @@ func TestDeserialize(t *testing.T) {
 		testname := test.input
 		t.Run(testname, func(t *testing.T) {
 			result := deserialize(test.input)
-			if !compare(result, test.expected) {
+			if !compareMessages(result, test.expected) {
 				t.Errorf("Expected %v, but got %v", test.expected, result)
 			}
 		})
