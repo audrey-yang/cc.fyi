@@ -4,4 +4,4 @@ Following the [Build Your Own Redis Server](https://codingchallenges.fyi/challen
 
 ## How to run
 
-Compile the executable with `go build` and run `./redis-cli`. Run tests with `go test -v`.
+Compile the executable with `go build  -o . ./...` and run `./redis-server` and `redis-cli`. Run tests with `go test -v`.
