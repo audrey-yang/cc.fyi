@@ -3,6 +3,8 @@ package main
 import (
 	"fmt"
 	"net"
+	"os"
+	"redis/internal/resp"
 )
 
 func main() {
@@ -12,7 +14,12 @@ func main() {
         return
     }
 
-    _, err = conn.Write([]byte("PING\r\n"))
+    args := os.Args
+    message := resp.CreateMessage(args[1:])
+    serializedMessage := resp.Serialize(message)
+    fmt.Println(serializedMessage)
+
+    _, err = conn.Write([]byte(serializedMessage))
     if err != nil {
         fmt.Println(err)
         return

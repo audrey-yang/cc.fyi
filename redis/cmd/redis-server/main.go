@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"net"
+	"redis/internal/resp"
 )
 
 func handleConnection(conn net.Conn) {
@@ -18,7 +19,7 @@ func handleConnection(conn net.Conn) {
 		if len == 0 {
 			return
 		}
-		fmt.Printf("Received: %s", buf)
+		fmt.Printf("Received: %v", resp.Deserialize(string(buf)))
 	}
 }
 
