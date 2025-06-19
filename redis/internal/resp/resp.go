@@ -21,7 +21,7 @@ type message struct {
 	value    any
 }
 
-func deserialize(input string) message {
+func Deserialize(input string) message {
 	if input[0] == '+' {
 		parts := strings.Split(input[1:], "\r\n")
 		return message{SimpleString, parts[0]}
@@ -61,10 +61,54 @@ func deserialize(input string) message {
 				subInput = parts[j]
 			}
 			j += 1
-			arr[i] = deserialize(subInput)
+			arr[i] = Deserialize(subInput)
 		}
 		return message{Array, arr}
 	}
 
 	panic("Cannot deserialize input " + input)
+}
+
+func Serialize(input message) string {
+	switch input.respType {
+	case SimpleString:
+		return "+" + input.value.(string) + "\r\n"
+	case Error:
+		return "-" + input.value.(string) + "\r\n"
+	case Integer:
+		return ":" + input.value.(string) + "\r\n"
+	case BulkString:
+		bulkString := input.value.([]byte)
+		return "$" + strconv.Itoa(len(bulkString)) + "\r\n" + string(bulkString) + "\r\n"
+	case Null:
+		return "$-1\r\n"
+	case Array:
+		arr := input.value.([]any)
+		serialized := "*" + strconv.Itoa(len(arr)) + "\r\n"
+		for _, v := range arr {
+			v, _ := v.(message)
+			serialized += Serialize(v)
+		}
+		return serialized
+	}
+	panic("Cannot serialize input")
+}
+
+func strToBytes(s string) message {
+	bytes := make([]byte, len(s))
+	for i, c := range s {
+		bytes[i] = byte(c)
+	}
+	return message{BulkString, bytes}
+}
+
+func CreateMessage(args []string) message {
+	bulkStrings := make([]any, len(args))
+	for i, arg := range args {
+		bulkStrings[i] = strToBytes(arg)
+	}
+	return message{
+		respType: Array,
+		value: bulkStrings,
+	}
 }

@@ -4,14 +4,6 @@ import (
 	"testing"
 )
 
-func strToBytes(s string) message {
-	bytes := make([]byte, len(s))
-	for i, c := range s {
-		bytes[i] = byte(c)
-	}
-	return message{BulkString, bytes}
-}
-
 func compareMessages(result message, expected message) bool {
 	if result.respType != expected.respType {
 		return false
@@ -60,7 +52,7 @@ func TestDeserialize(t *testing.T) {
 	for _, test := range tests {
 		testname := test.input
 		t.Run(testname, func(t *testing.T) {
-			result := deserialize(test.input)
+			result := Deserialize(test.input)
 			if !compareMessages(result, test.expected) {
 				t.Errorf("Expected %v, but got %v", test.expected, result)
 			}
