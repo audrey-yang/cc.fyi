@@ -3,23 +3,31 @@ package main
 import (
 	"fmt"
 	"net"
-	"redis/internal/resp"
+	"strings"
 )
 
 func handleConnection(conn net.Conn) {
     defer conn.Close()
 
     for {
-		buf := make([]byte, 1024)
-		len, err := conn.Read(buf)
+		buf := make([]byte, 64)
+		bytes, err := conn.Read(buf)
 		if err != nil {
 			fmt.Println(err)
 			return
 		}
-		if len == 0 {
+
+		if bytes == 0 {
 			return
 		}
-		fmt.Printf("Received: %v", resp.Deserialize(string(buf)))
+
+        cmds := strings.Split(string(buf[:bytes]), " ")
+		fmt.Printf("Received: %v\n", cmds)
+        if cmds[0] == "PING" {
+            conn.Write([]byte("PONG"))
+        } else if cmds[0] == "ECHO" {
+            conn.Write(buf[5:])
+        }
 	}
 }
 

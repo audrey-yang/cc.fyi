@@ -4,27 +4,27 @@ import (
 	"testing"
 )
 
-func compareMessages(result message, expected message) bool {
-	if result.respType != expected.respType {
+func compareMessages(result Message, expected Message) bool {
+	if result.RespType != expected.RespType {
 		return false
 	}
-	if result.respType == Array {
-		for i, v := range result.value.([]any) {
-			v, vok := v.(message)
-			e, eok := expected.value.([]message)
+	if result.RespType == Array {
+		for i, v := range result.Value.([]any) {
+			v, vok := v.(Message)
+			e, eok := expected.Value.([]Message)
 			if !vok || !eok || !compareMessages(v, e[i]) {
 				return false
 			}
 		}
-	} else if result.respType == BulkString {
-		for i, v := range result.value.([]byte) {
-			e, eok := expected.value.([]byte)
+	} else if result.RespType == BulkString {
+		for i, v := range result.Value.([]byte) {
+			e, eok := expected.Value.([]byte)
 			if !eok || v != e[i] {
 				return false
 			}
 		}
 	} else {
-		if result.value != expected.value {
+		if result.Value != expected.Value {
 			return false
 		}
 	}
@@ -34,19 +34,19 @@ func compareMessages(result message, expected message) bool {
 func TestDeserialize(t *testing.T) {
 	tests := []struct {
 		input    string
-		expected message
+		expected Message
 	}{
-		{"$-1\r\n", message{Null, nil}},
-		{"*1\r\n$4\r\nping\r\n", message{Array, []message{strToBytes("ping")}}},
+		{"$-1\r\n", Message{Null, nil}},
+		{"*1\r\n$4\r\nping\r\n", Message{Array, []Message{strToBytes("ping")}}},
 		{"*2\r\n$4\r\necho\r\n$11\r\nhello world\r\n",
-			message{Array, []message{strToBytes("echo"), strToBytes("hello world")}}},
+			Message{Array, []Message{strToBytes("echo"), strToBytes("hello world")}}},
 		{"*3\r\n$3\r\nget\r\n$3\r\nkey\r\n:255\r\n",
-			message{Array, []message{strToBytes("get"), strToBytes("key"), message{Integer, 255}}}},
-		{"+OK\r\n", message{SimpleString, "OK"}},
-		{"+hello world\r\n", message{SimpleString, "hello world"}},
-		{"-Error message\r\n", message{Error, "Error message"}},
-		{":2\r\n", message{Integer, 2}},
-		{"$0\r\n\r\n", message{BulkString, strToBytes("")}},
+			Message{Array, []Message{strToBytes("get"), strToBytes("key"), Message{Integer, 255}}}},
+		{"+OK\r\n", Message{SimpleString, "OK"}},
+		{"+hello world\r\n", Message{SimpleString, "hello world"}},
+		{"-Error Message\r\n", Message{Error, "Error Message"}},
+		{":2\r\n", Message{Integer, 2}},
+		{"$0\r\n\r\n", Message{BulkString, strToBytes("")}},
 	}
 
 	for _, test := range tests {

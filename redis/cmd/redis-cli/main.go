@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"redis/internal/resp"
+	"strings"
 )
 
 func main() {
@@ -14,16 +14,20 @@ func main() {
         return
     }
 
-    args := os.Args
-    message := resp.CreateMessage(args[1:])
-    serializedMessage := resp.Serialize(message)
-    fmt.Println(serializedMessage)
-
-    _, err = conn.Write([]byte(serializedMessage))
+    _, err = conn.Write([]byte(strings.Join(os.Args[1:], " ")))
     if err != nil {
         fmt.Println(err)
         return
     }
+
+    buf := make([]byte, 1024)
+    bytes, err2 := conn.Read(buf)
+    if err2 != nil {
+        fmt.Println(err2)
+        return
+    }
+
+    fmt.Printf("Received: %s", string(buf[:bytes+1]))
 
     conn.Close()
 }
