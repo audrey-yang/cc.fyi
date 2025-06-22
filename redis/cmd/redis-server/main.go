@@ -6,6 +6,8 @@ import (
 	"strings"
 )
 
+var dict = make(map[string]any)
+
 func handleConnection(conn net.Conn) {
     defer conn.Close()
 
@@ -27,6 +29,13 @@ func handleConnection(conn net.Conn) {
             conn.Write([]byte("PONG"))
         } else if cmds[0] == "ECHO" {
             conn.Write(buf[5:])
+        } else if cmds[0] == "SET" {
+            dict[cmds[1]] = cmds[2]
+            conn.Write([]byte("OK"))
+        }  else if cmds[0] == "GET" {
+            if val, ok := dict[cmds[1]].(string); ok {
+                conn.Write([]byte(val))
+            }
         }
 	}
 }
