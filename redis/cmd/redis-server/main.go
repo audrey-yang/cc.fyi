@@ -6,7 +6,7 @@ import (
 	"redis/internal/resp"
 )
 
-var dict = make(map[string]any)
+var dict = make(map[string]string)
 
 func handleConnection(conn net.Conn) {
     defer conn.Close()
@@ -24,7 +24,6 @@ func handleConnection(conn net.Conn) {
 		}
 
         message := resp.Deserialize(string(buf))
-		fmt.Printf("Received: %s\n", string(buf))
 
         if cmds, ok := message.Value.([]any); ok {
             firstCmdMsg, _ := cmds[0].(resp.Message)
@@ -38,6 +37,25 @@ func handleConnection(conn net.Conn) {
                 }
             } else if string(firstCmd) == "ECHO" {
                 ret = resp.Message{RespType: resp.Array, Value: cmds[1:]}
+            } else if string(firstCmd) == "SET" {
+                keyMsg, _ := cmds[1].(resp.Message)
+                key, _ := keyMsg.Value.([]byte)
+                valMsg, _ := cmds[2].(resp.Message)
+                val, _ := valMsg.Value.([]byte)
+                dict[string(key)] = string(val)
+                ret = resp.Message{RespType: resp.SimpleString, Value: "OK"}
+                fmt.Printf("Set key:%s, val:%s\n", string(key), dict[string(key)])
+            } else if string(firstCmd) == "GET" {
+                keyMsg, _ := cmds[1].(resp.Message)
+                key, _ := keyMsg.Value.([]byte)
+                val, exists := dict[string(key)]
+                if exists {
+                    ret = resp.Message{RespType: resp.BulkString, Value: []byte(val)}
+                    fmt.Printf("Got key:%s, val:%s\n", string(key), string(val))
+                } else {
+                    ret = resp.Message{RespType: resp.Error, Value: "Not found"}
+                    fmt.Printf("Failed to get key:%s\n", string(key))
+                }
             } else {
                 ret = resp.Message{RespType: resp.Error, Value: "ERROR"}
             }
