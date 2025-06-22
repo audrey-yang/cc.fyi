@@ -101,14 +101,3 @@ func strToBytes(s string) Message {
 	}
 	return Message{BulkString, bytes}
 }
-
-func CreateMessage(args []string) Message {
-	bulkStrings := make([]any, len(args))
-	for i, arg := range args {
-		bulkStrings[i] = strToBytes(arg)
-	}
-	return Message{
-		RespType: Array,
-		Value: bulkStrings,
-	}
-}
