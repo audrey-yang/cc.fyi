@@ -4,24 +4,69 @@ import (
 	"fmt"
 	"net"
 	"redis/internal/resp"
+	"sync"
 )
 
-var dict = make(map[string]string)
+type Redis struct {
+    mutex   sync.Mutex
+    dict    map[string]string
+}
+
+var redis = Redis{sync.Mutex{}, make(map[string]string)}
+
+func handleSet(cmds []any) resp.Message {
+    var ret resp.Message
+    keyMsg, _ := cmds[1].(resp.Message)
+    key, _ := keyMsg.Value.([]byte)
+    valMsg, _ := cmds[2].(resp.Message)
+    val, _ := valMsg.Value.([]byte)
+
+    if len(cmds) == 4 {
+        val, exists := redis.dict[string(key)]
+        if exists {
+            ret = resp.Message{RespType: resp.BulkString, Value: []byte(val)}
+        } else {
+            ret = resp.Message{RespType: resp.Null, Value: nil}
+        }
+    } else {
+        ret = resp.Message{RespType: resp.SimpleString, Value: "OK"}
+    }
+    redis.mutex.Lock()
+    redis.dict[string(key)] = string(val)
+    redis.mutex.Unlock()
+    fmt.Printf("Set key:%s, val:%s\n", string(key), string(val))
+    return ret
+}
+
+func handleGet(cmds []any) resp.Message {
+    var ret resp.Message
+    keyMsg, _ := cmds[1].(resp.Message)
+    key, _ := keyMsg.Value.([]byte)
+    val, exists := redis.dict[string(key)]
+    if exists {
+        ret = resp.Message{RespType: resp.BulkString, Value: []byte(val)}
+        fmt.Printf("Got key:%s, val:%s\n", string(key), string(val))
+    } else {
+        ret = resp.Message{RespType: resp.Null, Value: nil}
+        fmt.Printf("Failed to get key:%s\n", string(key))
+    }
+    return ret
+}
 
 func handleConnection(conn net.Conn) {
     defer conn.Close()
 
+    buf := make([]byte, 1024)
     for {
-		buf := make([]byte, 64)
-		bytes, err := conn.Read(buf)
-		if err != nil {
-			fmt.Println(err)
-			return
-		}
+        bytes, err := conn.Read(buf)
+        if err != nil {
+            fmt.Println(err)
+            return
+        }
 
-		if bytes == 0 {
-			return
-		}
+        if bytes == 0 {
+            return
+        }
 
         message := resp.Deserialize(string(buf))
 
@@ -30,31 +75,29 @@ func handleConnection(conn net.Conn) {
             firstCmd, _ := firstCmdMsg.Value.([]byte)
             var ret resp.Message
             if string(firstCmd) == "PING" {
-                pong := resp.Message{RespType: resp.BulkString, Value: []byte("PONG")}
-                ret = resp.Message{
-                    RespType: resp.Array, 
-                    Value: []any{pong},
+                if len(cmds) == 1 {
+                    pong := resp.Message{RespType: resp.BulkString, Value: []byte("PONG")}
+                    ret = resp.Message{
+                        RespType: resp.Array, 
+                        Value: []any{pong},
+                    }
+                } else {
+                    ret = resp.Message{
+                        RespType: resp.Array, 
+                        Value: cmds[1:],
+                    }
                 }
             } else if string(firstCmd) == "ECHO" {
                 ret = resp.Message{RespType: resp.Array, Value: cmds[1:]}
             } else if string(firstCmd) == "SET" {
-                keyMsg, _ := cmds[1].(resp.Message)
-                key, _ := keyMsg.Value.([]byte)
-                valMsg, _ := cmds[2].(resp.Message)
-                val, _ := valMsg.Value.([]byte)
-                dict[string(key)] = string(val)
-                ret = resp.Message{RespType: resp.SimpleString, Value: "OK"}
-                fmt.Printf("Set key:%s, val:%s\n", string(key), dict[string(key)])
+                ret = handleSet(cmds)
             } else if string(firstCmd) == "GET" {
-                keyMsg, _ := cmds[1].(resp.Message)
-                key, _ := keyMsg.Value.([]byte)
-                val, exists := dict[string(key)]
-                if exists {
-                    ret = resp.Message{RespType: resp.BulkString, Value: []byte(val)}
-                    fmt.Printf("Got key:%s, val:%s\n", string(key), string(val))
-                } else {
-                    ret = resp.Message{RespType: resp.Error, Value: "Not found"}
-                    fmt.Printf("Failed to get key:%s\n", string(key))
+                ret = handleGet(cmds)
+            } else if string(firstCmd) == "HELLO" {
+                pong := resp.Message{RespType: resp.BulkString, Value: []byte("PONG")}
+                ret = resp.Message{
+                    RespType: resp.Array, 
+                    Value: []any{pong},
                 }
             } else {
                 ret = resp.Message{RespType: resp.Error, Value: "ERROR"}
@@ -63,7 +106,7 @@ func handleConnection(conn net.Conn) {
         } else {
             fmt.Println("Something went wrong; couldn't convert")
         }
-	}
+    }
 }
 
 func main() {
@@ -81,7 +124,6 @@ func main() {
             fmt.Println(err)
             continue
         }
-
         go handleConnection(conn)
     }
 }
