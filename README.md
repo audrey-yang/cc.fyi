@@ -13,3 +13,4 @@ Implementations of problems from John Crickett's [Coding Challenges](https://cod
 | [Traceroute](./traceroute/README.md)     | C++      | ✓           |
 | [Port Scanner](./port-scanner/README.md) | C++      | In progress |
 | [Redis Server](./redis/README.md)        | go       | In progress |
+| [which](./which/README.md)               | bash     | ✓           |
