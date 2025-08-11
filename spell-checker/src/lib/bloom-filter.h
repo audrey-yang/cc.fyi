@@ -7,10 +7,10 @@
 #include <fstream>
 
 class BloomFilter {
-    uint32_t m, k;
     std::vector<char> arr;
 
   public:
+    uint32_t m, k;
     BloomFilter(int n, double eps);
     BloomFilter(std::string filename);
     void insert_item(std::string data);

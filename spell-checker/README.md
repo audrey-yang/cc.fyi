@@ -5,3 +5,7 @@ Following the [Build Your Own Spell Checker Using A Bloom Filter](https://coding
 ## How to run
 
 Compile the project with `bazel build ...` and run with `bazel run //src/main:main`.
+
+## Running tests
+
+Run tests with `bazel test --test_output=all //tests:test`.
