@@ -1,5 +1,5 @@
 cc_binary(
     name = "main",
     srcs = ["main.cc"],
-    deps = ["//src/lib:bloom-filter"]
+    deps = ["//src/lib:bloom-filter", "//src/checker:spell-checker"]
 )

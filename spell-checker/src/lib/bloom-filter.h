@@ -1,3 +1,5 @@
+#ifndef BLOOM_FILTER_H
+#define BLOOM_FILTER_H
 #include <cmath>
 #include <cstdbool>
 #include <vector>
@@ -17,3 +19,4 @@ class BloomFilter {
 };
 
 uint64_t fnv1a(int FNV_offset_basis, const char* data);
+#endif
