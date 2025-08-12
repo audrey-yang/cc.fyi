@@ -4,6 +4,10 @@
 
 int main(int argc, const char* argv[])
 {
-    SpellChecker checker;
-    checker.check_words(argc, argv);
+    if (strcmp(argv[1], "-build") == 0) {
+        SpellChecker::load_dict(std::string(argv[2]));
+    } else {
+        SpellChecker checker;
+        checker.check_words(argc, argv);
+    }
 }

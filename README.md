@@ -14,4 +14,4 @@ Implementations of problems from John Crickett's [Coding Challenges](https://cod
 | [Port Scanner](./port-scanner/README.md)   | C++      | In progress |
 | [Redis Server](./redis/README.md)          | go       | In progress |
 | [which](./which/README.md)                 | bash     | ✓           |
-| [Spell Checker](./spell-checker/README.md) | C++      | In progress |
+| [Spell Checker](./spell-checker/README.md) | C++      | ✓           |
