@@ -16,3 +16,4 @@ Implementations of problems from John Crickett's [Coding Challenges](https://cod
 | [which](./which)                                         | bash     | ✓           |
 | [Spell Checker](./spell-checker)                         | C++      | ✓           |
 | [Blogging Software](https://github.com/audrey-yang/blog) | go       | In progress |
+| [cut](./cut)                                             | C        | In progress |
