@@ -4,16 +4,7 @@ use std::io::prelude::*;
 use std::path::Path;
 use std::collections::HashMap;
 
-fn get_freqs(s: &String) -> HashMap<char, i32> {
-    let mut freqs = HashMap::new();
-    for c in s.chars() { 
-        match freqs.get(&c) {
-            Some(freq) => freqs.insert(c, freq + 1),
-            _ => freqs.insert(c, 1),
-        };
-    }
-    return freqs;
-}
+use huffman::get_char_freqs;
 
 fn print_map_value(mp: &HashMap<char, i32>, k: char) {
     match mp.get(&k) {
@@ -44,7 +35,7 @@ fn main() {
         Ok(size) => println!("Successfully read {}, {} bytes", display, size),
     }
 
-    let freqs = get_freqs(&text);
+    let freqs = get_char_freqs(&text);
     print_map_value(&freqs, 'X');
     print_map_value(&freqs, 't');
 }
