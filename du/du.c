@@ -1,13 +1,4 @@
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
-#include <math.h>
-#include <stdbool.h>
-#include <unistd.h>
-#include <dirent.h>
-#include <sys/stat.h>
-
-#include "convert.h"
+#include "du.h"
 
 void print_size(
     char* dirname, enum Unit unit, bool is_human_readable, int num_blocks
@@ -35,9 +26,11 @@ int get_directory_size(
     enum Unit unit, 
     bool is_human_readable, 
     bool print_files,
+    bool follow_symlinks,
     bool has_depth_limit,
     int cur_depth,
-    int max_depth
+    int max_depth,
+    inode *seen_inodes
 ) {
     DIR* dirp = opendir(dirname);
     struct dirent* dp;
@@ -51,6 +44,16 @@ int get_directory_size(
         char* fullpath = malloc(fullpath_len);
         snprintf(fullpath, fullpath_len, "%s/%s", dirname, dp->d_name);
 
+        inode* inode_ptr;
+        HASH_FIND_INT(seen_inodes, &dp->d_ino, inode_ptr);
+        if (inode_ptr != NULL) {
+            goto end_processpath;
+        }
+
+        inode_ptr = malloc(sizeof(inode));
+        inode_ptr->ino = dp->d_ino;
+        HASH_ADD_INT(seen_inodes, ino, inode_ptr);
+
         if (
             dp->d_type == DT_DIR && 
             strcmp(dp->d_name, ".") != 0 && 
@@ -58,7 +61,7 @@ int get_directory_size(
         ) {
             // For directories, recurse to get size
             num_blocks += get_directory_size(
-                fullpath, unit, is_human_readable, print_files, has_depth_limit, cur_depth + 1, max_depth
+                fullpath, unit, is_human_readable, print_files, follow_symlinks, has_depth_limit, cur_depth + 1, max_depth, seen_inodes
             );
         } else if (dp->d_type == DT_REG) {
             if (stat(fullpath, &st) == 0) {
@@ -67,7 +70,11 @@ int get_directory_size(
             if (print_files) {
                 print_size(fullpath, unit, is_human_readable, st.st_blocks);
             }
+        } else if (dp->d_type == DT_LNK) {
+            printf("I found a link: %s\n", fullpath);
         }
+
+    end_processpath:
         free(fullpath);
     }
     
@@ -86,9 +93,10 @@ int main(int argc, char** argv) {
     bool should_show_files = false;
     bool has_depth_limit = false;
     int max_depth;
+    bool follow_symlinks = false;
     enum Unit unit = BLOCKS;
 
-    while ((opt = getopt(argc, argv, "hkmgscad:")) != -1) {
+    while ((opt = getopt(argc, argv, "hkmgscad:L")) != -1) {
         switch (opt) {
             case 'h':
                 is_human_readable = true;
@@ -113,8 +121,14 @@ int main(int argc, char** argv) {
                 break;
             case 'd':
                 has_depth_limit = true;
-                max_depth = atoi(optarg);
+                char* end;
+                max_depth = (int) strtol(optarg, &end, 10);
+                if (optarg == end) {
+                    goto print_hint_and_fail;
+                }
                 break;
+            case 'L':
+                follow_symlinks = true;
             default:
                 goto print_hint_and_fail;
         }
@@ -125,14 +139,21 @@ int main(int argc, char** argv) {
     }
 
     int total_blocks = 0;
+    inode* seen_inodes = NULL;
 
     if (optind >= argc) {
-        total_blocks += get_directory_size(".", unit, is_human_readable, should_show_files, has_depth_limit, 0, max_depth);
+        total_blocks += get_directory_size(".", unit, is_human_readable, should_show_files, follow_symlinks, has_depth_limit, 0, max_depth, seen_inodes);
     }
 
     for (int i = optind; i < argc; i++) {
-        int dir_blocks = get_directory_size(argv[i], unit, is_human_readable, should_show_files, has_depth_limit, 0, max_depth);
+        int dir_blocks = get_directory_size(argv[i], unit, is_human_readable, should_show_files, follow_symlinks, has_depth_limit, 0, max_depth, seen_inodes);
         total_blocks += dir_blocks;
+    }
+
+    inode *cur_inode, *tmp;
+    HASH_ITER(hh, seen_inodes, cur_inode, tmp) {
+        HASH_DEL(seen_inodes, cur_inode);
+        free(cur_inode); 
     }
 
     if (should_calculate_total) {
