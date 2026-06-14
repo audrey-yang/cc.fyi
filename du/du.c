@@ -67,9 +67,10 @@ int main(int argc, char** argv) {
 
     bool is_human_readable = false;
     bool is_summary = false;
+    bool should_calculate_total = false;
     enum Unit unit = BLOCKS;
 
-    while ((opt = getopt(argc, argv, "hkmgts")) != -1) {
+    while ((opt = getopt(argc, argv, "hkmgtsc")) != -1) {
         switch (opt) {
             case 'h':
                 is_human_readable = true;
@@ -87,11 +88,17 @@ int main(int argc, char** argv) {
                 break;
             case 's':
                 is_summary = true;
+                break;
+            case 'c':
+                should_calculate_total = true;
+                break;
         }
     }
 
+    int total_blocks = 0;
+
     if (optind >= argc) {
-        get_directory_size(".", unit, is_human_readable, !is_summary);
+        total_blocks += get_directory_size(".", unit, is_human_readable, !is_summary);
     }
 
     for (int i = optind; i < argc; i++) {
@@ -99,6 +106,11 @@ int main(int argc, char** argv) {
         if (is_summary) {
             print_size(argv[i], unit, is_human_readable, dir_blocks);
         }
+        total_blocks += dir_blocks;
+    }
+
+    if (should_calculate_total) {
+        print_size("total", unit, is_human_readable, total_blocks);
     }
 
     return 0;
