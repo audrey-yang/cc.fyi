@@ -1,5 +1,5 @@
-ccdu: du.c
-	clang du.c -o ccdu
+ccdu: convert.h du.c
+	clang convert.c du.c -o ccdu
 
 clean:
 	rm ccdu
