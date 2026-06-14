@@ -32,7 +32,11 @@ void print_size(
 
 
 int get_directory_size(
-    char* dirname, enum Unit unit, bool is_human_readable, bool print_all
+    char* dirname, 
+    enum Unit unit, 
+    bool is_human_readable, 
+    bool hide_result, 
+    bool print_files
 ) {
     DIR* dirp = opendir(dirname);
     struct dirent* dp;
@@ -41,21 +45,32 @@ int get_directory_size(
     int num_blocks = 0;
 
     while ((dp = readdir(dirp)) != NULL) {
+        // Create new file path
         int fullpath_len = strlen(dirname) + dp->d_namlen + 2;
         char* fullpath = malloc(fullpath_len);
         snprintf(fullpath, fullpath_len, "%s/%s", dirname, dp->d_name);
 
-        if (dp->d_type == DT_DIR && strcmp(dp->d_name, ".") != 0 && strcmp(dp->d_name, "..") != 0) {
-            num_blocks += get_directory_size(fullpath, unit, is_human_readable, print_all);
+        if (
+            dp->d_type == DT_DIR && 
+            strcmp(dp->d_name, ".") != 0 && 
+            strcmp(dp->d_name, "..") != 0
+        ) {
+            // For directories, recurse to get size
+            num_blocks += get_directory_size(
+                fullpath, unit, is_human_readable, hide_result, print_files
+            );
         } else if (dp->d_type == DT_REG) {
             if (stat(fullpath, &st) == 0) {
                 num_blocks += st.st_blocks;
+            }
+            if (print_files) {
+                print_size(fullpath, unit, is_human_readable, st.st_blocks);
             }
         }
         free(fullpath);
     }
     
-    if (print_all) {
+    if (!hide_result) {
         print_size(dirname, unit, is_human_readable, num_blocks);
     }
     
@@ -68,9 +83,10 @@ int main(int argc, char** argv) {
     bool is_human_readable = false;
     bool is_summary = false;
     bool should_calculate_total = false;
+    bool should_show_files = false;
     enum Unit unit = BLOCKS;
 
-    while ((opt = getopt(argc, argv, "hkmgtsc")) != -1) {
+    while ((opt = getopt(argc, argv, "hkmgsca")) != -1) {
         switch (opt) {
             case 'h':
                 is_human_readable = true;
@@ -83,26 +99,30 @@ int main(int argc, char** argv) {
             case 'g':
                 unit = GB;
                 break;
-            case 't':
-                unit = TB;
-                break;
             case 's':
                 is_summary = true;
                 break;
             case 'c':
                 should_calculate_total = true;
                 break;
+            case 'a':
+                should_show_files = true;
+                break;
         }
+    }
+
+    if (is_summary && should_show_files) {
+        goto print_hint_and_fail;
     }
 
     int total_blocks = 0;
 
     if (optind >= argc) {
-        total_blocks += get_directory_size(".", unit, is_human_readable, !is_summary);
+        total_blocks += get_directory_size(".", unit, is_human_readable, is_summary, should_show_files);
     }
 
     for (int i = optind; i < argc; i++) {
-        int dir_blocks = get_directory_size(argv[i], unit, is_human_readable, !is_summary);
+        int dir_blocks = get_directory_size(argv[i], unit, is_human_readable, is_summary, should_show_files);
         if (is_summary) {
             print_size(argv[i], unit, is_human_readable, dir_blocks);
         }
@@ -114,4 +134,8 @@ int main(int argc, char** argv) {
     }
 
     return 0;
+
+print_hint_and_fail:
+    fprintf(stderr, "usage: ccdu [-c] [-g | -h | -k | -m] [-a | -s] [file ...]\n");
+    exit(1);
 }
