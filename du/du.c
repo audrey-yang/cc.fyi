@@ -30,13 +30,14 @@ void print_size(
     }
 }
 
-
 int get_directory_size(
     char* dirname, 
     enum Unit unit, 
     bool is_human_readable, 
-    bool hide_result, 
-    bool print_files
+    bool print_files,
+    bool has_depth_limit,
+    int cur_depth,
+    int max_depth
 ) {
     DIR* dirp = opendir(dirname);
     struct dirent* dp;
@@ -57,7 +58,7 @@ int get_directory_size(
         ) {
             // For directories, recurse to get size
             num_blocks += get_directory_size(
-                fullpath, unit, is_human_readable, hide_result, print_files
+                fullpath, unit, is_human_readable, print_files, has_depth_limit, cur_depth + 1, max_depth
             );
         } else if (dp->d_type == DT_REG) {
             if (stat(fullpath, &st) == 0) {
@@ -70,7 +71,7 @@ int get_directory_size(
         free(fullpath);
     }
     
-    if (!hide_result) {
+    if (!has_depth_limit || cur_depth <= max_depth) {
         print_size(dirname, unit, is_human_readable, num_blocks);
     }
     
@@ -81,12 +82,13 @@ int main(int argc, char** argv) {
     char opt;
 
     bool is_human_readable = false;
-    bool is_summary = false;
     bool should_calculate_total = false;
     bool should_show_files = false;
+    bool has_depth_limit = false;
+    int max_depth;
     enum Unit unit = BLOCKS;
 
-    while ((opt = getopt(argc, argv, "hkmgsca")) != -1) {
+    while ((opt = getopt(argc, argv, "hkmgscad:")) != -1) {
         switch (opt) {
             case 'h':
                 is_human_readable = true;
@@ -100,7 +102,8 @@ int main(int argc, char** argv) {
                 unit = GB;
                 break;
             case 's':
-                is_summary = true;
+                has_depth_limit = true;
+                max_depth = 0;
                 break;
             case 'c':
                 should_calculate_total = true;
@@ -108,24 +111,27 @@ int main(int argc, char** argv) {
             case 'a':
                 should_show_files = true;
                 break;
+            case 'd':
+                has_depth_limit = true;
+                max_depth = atoi(optarg);
+                break;
+            default:
+                goto print_hint_and_fail;
         }
     }
 
-    if (is_summary && should_show_files) {
+    if (has_depth_limit && should_show_files) {
         goto print_hint_and_fail;
     }
 
     int total_blocks = 0;
 
     if (optind >= argc) {
-        total_blocks += get_directory_size(".", unit, is_human_readable, is_summary, should_show_files);
+        total_blocks += get_directory_size(".", unit, is_human_readable, should_show_files, has_depth_limit, 0, max_depth);
     }
 
     for (int i = optind; i < argc; i++) {
-        int dir_blocks = get_directory_size(argv[i], unit, is_human_readable, is_summary, should_show_files);
-        if (is_summary) {
-            print_size(argv[i], unit, is_human_readable, dir_blocks);
-        }
+        int dir_blocks = get_directory_size(argv[i], unit, is_human_readable, should_show_files, has_depth_limit, 0, max_depth);
         total_blocks += dir_blocks;
     }
 
@@ -136,6 +142,6 @@ int main(int argc, char** argv) {
     return 0;
 
 print_hint_and_fail:
-    fprintf(stderr, "usage: ccdu [-c] [-g | -h | -k | -m] [-a | -s] [file ...]\n");
+    fprintf(stderr, "usage: ccdu [-c] [-g | -h | -k | -m] [-a | -s | -d depth] [file ...]\n");
     exit(1);
 }
